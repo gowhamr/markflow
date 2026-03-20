@@ -1,0 +1,1421 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>MarkFlow — Advanced Markdown Converter</title>
+
+  <!-- ===== EXTERNAL LIBRARIES (CDN) ===== -->
+  <!-- Marked.js 4.3.0 — pinned stable version with well-known API -->
+  <script src="https://cdn.jsdelivr.net/npm/marked@4.3.0/marked.min.js"></script>
+  <!-- Highlight.js: Syntax highlighting for code blocks -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css" id="hljs-theme"/>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+  <!-- html2pdf.js: PDF export -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+  <!-- html-docx-js: Word .docx export -->
+  <script src="https://cdn.jsdelivr.net/npm/html-docx-js/dist/html-docx.js"></script>
+  <!-- Material Icons -->
+  <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet"/>
+  <!-- Google Fonts: DM Sans + DM Mono -->
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+
+  <style>
+    /* ===================================================
+       CSS CUSTOM PROPERTIES — Material Design 3 tokens
+    =================================================== */
+    :root {
+      --md-primary:       #1a73e8;
+      --md-primary-dark:  #1557b0;
+      --md-primary-light: #e8f0fe;
+      --md-secondary:     #5f6368;
+      --md-surface:       #ffffff;
+      --md-surface-1:     #f8f9fa;
+      --md-surface-2:     #f1f3f4;
+      --md-outline:       #dadce0;
+      --md-on-surface:    #202124;
+      --md-on-surface-v:  #5f6368;
+      --md-error:         #d93025;
+      --md-success:       #1e8e3e;
+      --md-shadow-1: 0 1px 2px rgba(60,64,67,.3), 0 1px 3px 1px rgba(60,64,67,.15);
+      --md-shadow-2: 0 1px 2px rgba(60,64,67,.3), 0 2px 6px 2px rgba(60,64,67,.15);
+      --md-shadow-3: 0 4px 8px 3px rgba(60,64,67,.15), 0 1px 3px rgba(60,64,67,.3);
+      --radius-sm:  4px;
+      --radius-md:  8px;
+      --radius-lg: 16px;
+      --radius-xl: 28px;
+      --font-body: 'DM Sans', sans-serif;
+      --font-mono: 'DM Mono', monospace;
+      --transition: 200ms cubic-bezier(.2,0,0,1);
+    }
+
+    /* ===================================================
+       RESET & BASE
+    =================================================== */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html { font-size: 16px; scroll-behavior: smooth; }
+
+    body {
+      font-family: var(--font-body);
+      background: var(--md-surface-1);
+      color: var(--md-on-surface);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow-x: hidden;
+    }
+
+    /* ===================================================
+       TOP APP BAR (Material Design)
+    =================================================== */
+    .app-bar {
+      background: var(--md-surface);
+      border-bottom: 1px solid var(--md-outline);
+      height: 64px;
+      display: flex;
+      align-items: center;
+      padding: 0 24px;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      gap: 12px;
+      box-shadow: var(--md-shadow-1);
+    }
+    .app-bar__logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      text-decoration: none;
+      flex-shrink: 0;
+    }
+    .app-bar__icon {
+      width: 36px; height: 36px;
+      background: var(--md-primary);
+      border-radius: var(--radius-md);
+      display: flex; align-items: center; justify-content: center;
+      color: #fff;
+      font-size: 20px;
+    }
+    .app-bar__title {
+      font-size: 1.25rem;
+      font-weight: 600;
+      color: var(--md-on-surface);
+      letter-spacing: -0.01em;
+    }
+    .app-bar__title span { color: var(--md-primary); }
+    .app-bar__spacer { flex: 1; }
+    .app-bar__badge {
+      font-size: 0.7rem;
+      font-weight: 600;
+      background: var(--md-primary-light);
+      color: var(--md-primary);
+      padding: 2px 8px;
+      border-radius: 100px;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+    }
+
+    /* ===================================================
+       TAB BAR (Mode Toggle)
+    =================================================== */
+    .tab-bar {
+      background: var(--md-surface);
+      border-bottom: 1px solid var(--md-outline);
+      display: flex;
+      padding: 0 24px;
+      gap: 4px;
+    }
+    .tab-btn {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 0 20px;
+      height: 48px;
+      font-family: var(--font-body);
+      font-size: 0.875rem;
+      font-weight: 500;
+      color: var(--md-on-surface-v);
+      background: none;
+      border: none;
+      border-bottom: 3px solid transparent;
+      cursor: pointer;
+      transition: color var(--transition), border-color var(--transition), background var(--transition);
+      border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+      position: relative;
+      letter-spacing: 0.01em;
+    }
+    .tab-btn:hover {
+      color: var(--md-primary);
+      background: var(--md-primary-light);
+    }
+    .tab-btn.active {
+      color: var(--md-primary);
+      border-bottom-color: var(--md-primary);
+      font-weight: 600;
+    }
+    .tab-btn .material-icons { font-size: 18px; }
+
+    /* ===================================================
+       MAIN CONTENT AREA
+    =================================================== */
+    .main {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      padding: 24px;
+      gap: 20px;
+      max-width: 1400px;
+      width: 100%;
+      margin: 0 auto;
+    }
+
+    /* ===================================================
+       MODE PANELS
+    =================================================== */
+    .mode-panel { display: none; flex-direction: column; gap: 20px; }
+    .mode-panel.active { display: flex; }
+
+    /* ===================================================
+       CARD (Material Design elevated surface)
+    =================================================== */
+    .md-card {
+      background: var(--md-surface);
+      border-radius: var(--radius-lg);
+      box-shadow: var(--md-shadow-1);
+      overflow: hidden;
+      border: 1px solid var(--md-outline);
+    }
+    .md-card--elevated { box-shadow: var(--md-shadow-2); }
+
+    /* Card header bar */
+    .card-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 14px 20px;
+      background: var(--md-surface);
+      border-bottom: 1px solid var(--md-outline);
+      flex-wrap: wrap;
+    }
+    .card-header__title {
+      font-size: 0.875rem;
+      font-weight: 600;
+      color: var(--md-on-surface);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      letter-spacing: 0.01em;
+    }
+    .card-header__title .material-icons { font-size: 18px; color: var(--md-primary); }
+    .card-header__spacer { flex: 1; }
+    .card-header__badge {
+      font-size: 0.75rem;
+      color: var(--md-on-surface-v);
+      background: var(--md-surface-2);
+      padding: 3px 10px;
+      border-radius: 100px;
+      font-weight: 500;
+    }
+
+    /* ===================================================
+       UPLOAD ZONE
+    =================================================== */
+    .upload-zone {
+      border: 2px dashed var(--md-outline);
+      border-radius: var(--radius-lg);
+      padding: 60px 40px;
+      text-align: center;
+      cursor: pointer;
+      transition: all var(--transition);
+      background: var(--md-surface);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 16px;
+      position: relative;
+    }
+    .upload-zone:hover,
+    .upload-zone.drag-over {
+      border-color: var(--md-primary);
+      background: var(--md-primary-light);
+    }
+    .upload-zone.drag-over { transform: scale(1.01); }
+    .upload-zone__icon {
+      width: 72px; height: 72px;
+      border-radius: 50%;
+      background: var(--md-primary-light);
+      display: flex; align-items: center; justify-content: center;
+      transition: transform var(--transition);
+    }
+    .upload-zone:hover .upload-zone__icon { transform: translateY(-4px); }
+    .upload-zone__icon .material-icons { font-size: 36px; color: var(--md-primary); }
+    .upload-zone__title {
+      font-size: 1.125rem;
+      font-weight: 600;
+      color: var(--md-on-surface);
+    }
+    .upload-zone__subtitle {
+      font-size: 0.875rem;
+      color: var(--md-on-surface-v);
+      max-width: 320px;
+      line-height: 1.6;
+    }
+    .upload-zone__chip {
+      font-size: 0.75rem;
+      font-weight: 600;
+      background: var(--md-surface-2);
+      color: var(--md-secondary);
+      padding: 4px 12px;
+      border-radius: 100px;
+      border: 1px solid var(--md-outline);
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+    #file-input { display: none; }
+
+    /* File info chip after upload */
+    .file-info {
+      display: none;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 16px;
+      background: var(--md-primary-light);
+      border-radius: var(--radius-md);
+      border: 1px solid #c5d9f8;
+      font-size: 0.875rem;
+      font-weight: 500;
+      color: var(--md-primary-dark);
+      margin-top: 8px;
+    }
+    .file-info.visible { display: flex; }
+    .file-info .material-icons { font-size: 18px; }
+
+    /* ===================================================
+       LIVE EDITOR — SPLIT SCREEN
+    =================================================== */
+    .split-screen {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+      min-height: 600px;
+    }
+    @media (max-width: 900px) {
+      .split-screen { grid-template-columns: 1fr; }
+    }
+
+    /* Textarea (left pane) */
+    .editor-pane { display: flex; flex-direction: column; }
+    .md-textarea {
+      flex: 1;
+      min-height: 540px;
+      padding: 20px;
+      font-family: var(--font-mono);
+      font-size: 0.875rem;
+      line-height: 1.7;
+      border: none;
+      outline: none;
+      resize: vertical;
+      color: var(--md-on-surface);
+      background: var(--md-surface);
+      tab-size: 2;
+      white-space: pre;
+      overflow-wrap: normal;
+      overflow-x: auto;
+    }
+    .md-textarea::placeholder { color: var(--md-outline); }
+
+    /* ===================================================
+       PREVIEW PANE
+    =================================================== */
+    .preview-pane { display: flex; flex-direction: column; }
+    .preview-content {
+      flex: 1;
+      padding: 28px 32px;
+      overflow-y: auto;
+      min-height: 540px;
+      background: var(--md-surface);
+    }
+
+    /* Export buttons row */
+    .export-bar {
+      display: flex;
+      gap: 8px;
+      padding: 12px 20px;
+      background: var(--md-surface-1);
+      border-top: 1px solid var(--md-outline);
+      flex-wrap: wrap;
+    }
+
+    /* ===================================================
+       MATERIAL BUTTONS
+    =================================================== */
+    /* Filled button */
+    .btn-filled {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 0 20px;
+      height: 40px;
+      font-family: var(--font-body);
+      font-size: 0.875rem;
+      font-weight: 500;
+      color: #fff;
+      background: var(--md-primary);
+      border: none;
+      border-radius: 100px;
+      cursor: pointer;
+      transition: all var(--transition);
+      letter-spacing: 0.01em;
+      white-space: nowrap;
+    }
+    .btn-filled:hover { background: var(--md-primary-dark); box-shadow: var(--md-shadow-2); }
+    .btn-filled:active { transform: scale(.97); }
+    .btn-filled .material-icons { font-size: 16px; }
+
+    /* Tonal (soft) button */
+    .btn-tonal {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 0 16px;
+      height: 36px;
+      font-family: var(--font-body);
+      font-size: 0.8125rem;
+      font-weight: 500;
+      color: var(--md-primary);
+      background: var(--md-primary-light);
+      border: none;
+      border-radius: 100px;
+      cursor: pointer;
+      transition: all var(--transition);
+      letter-spacing: 0.01em;
+      white-space: nowrap;
+    }
+    .btn-tonal:hover { background: #d2e3fc; box-shadow: var(--md-shadow-1); }
+    .btn-tonal:active { transform: scale(.97); }
+    .btn-tonal .material-icons { font-size: 16px; }
+
+    /* Text button */
+    .btn-text {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 0 12px;
+      height: 36px;
+      font-family: var(--font-body);
+      font-size: 0.8125rem;
+      font-weight: 500;
+      color: var(--md-primary);
+      background: none;
+      border: none;
+      border-radius: 100px;
+      cursor: pointer;
+      transition: background var(--transition);
+      letter-spacing: 0.01em;
+      white-space: nowrap;
+    }
+    .btn-text:hover { background: var(--md-primary-light); }
+    .btn-text .material-icons { font-size: 16px; }
+
+    /* Icon-only button */
+    .btn-icon {
+      width: 32px; height: 32px;
+      border-radius: 50%;
+      background: none;
+      border: none;
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      color: var(--md-on-surface-v);
+      transition: background var(--transition), color var(--transition);
+    }
+    .btn-icon:hover { background: var(--md-surface-2); color: var(--md-on-surface); }
+    .btn-icon .material-icons { font-size: 18px; }
+
+    /* Export specific tones */
+    .btn-export-html { color: #b06000; background: #fff3e0; }
+    .btn-export-html:hover { background: #ffe0b2; }
+    .btn-export-pdf  { color: #c62828; background: #ffebee; }
+    .btn-export-pdf:hover  { background: #ffcdd2; }
+    .btn-export-word { color: #1557b0; background: #e3f2fd; }
+    .btn-export-word:hover { background: #bbdefb; }
+
+    /* ===================================================
+       PREVIEW TYPOGRAPHY (GitHub README style)
+    =================================================== */
+    .preview-content h1,
+    .preview-content h2,
+    .preview-content h3,
+    .preview-content h4,
+    .preview-content h5,
+    .preview-content h6 {
+      font-weight: 700;
+      line-height: 1.3;
+      margin-top: 1.5em;
+      margin-bottom: 0.6em;
+      color: var(--md-on-surface);
+    }
+    .preview-content h1 { font-size: 2em; padding-bottom: 0.3em; border-bottom: 2px solid var(--md-outline); margin-top: 0; }
+    .preview-content h2 { font-size: 1.5em; padding-bottom: 0.2em; border-bottom: 1px solid var(--md-outline); }
+    .preview-content h3 { font-size: 1.25em; }
+    .preview-content h4 { font-size: 1em; }
+    .preview-content h5 { font-size: 0.875em; }
+    .preview-content h6 { font-size: 0.85em; color: var(--md-on-surface-v); }
+
+    .preview-content p { margin-bottom: 1em; line-height: 1.75; }
+
+    .preview-content a { color: var(--md-primary); text-decoration: none; font-weight: 500; }
+    .preview-content a:hover { text-decoration: underline; }
+
+    .preview-content ul, .preview-content ol {
+      margin-bottom: 1em;
+      padding-left: 2em;
+    }
+    .preview-content li { margin-bottom: 0.35em; line-height: 1.7; }
+
+    .preview-content blockquote {
+      margin: 1.25em 0;
+      padding: 12px 20px;
+      border-left: 4px solid var(--md-primary);
+      background: var(--md-primary-light);
+      border-radius: 0 var(--radius-md) var(--radius-md) 0;
+      color: var(--md-on-surface-v);
+      font-style: italic;
+    }
+
+    .preview-content hr {
+      border: none;
+      border-top: 1px solid var(--md-outline);
+      margin: 2em 0;
+    }
+
+    .preview-content strong { font-weight: 700; }
+    .preview-content em { font-style: italic; }
+
+    /* Inline code */
+    .preview-content code {
+      font-family: var(--font-mono);
+      font-size: 0.875em;
+      background: var(--md-surface-2);
+      color: #c7254e;
+      padding: 2px 6px;
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--md-outline);
+    }
+
+    /* Code block wrapper: position:relative to anchor copy btn */
+    .preview-content pre {
+      margin: 1.25em 0;
+      border-radius: var(--radius-md);
+      border: 1px solid var(--md-outline);
+      overflow: hidden;
+      position: relative;
+      box-shadow: var(--md-shadow-1);
+    }
+
+    .preview-content pre code {
+      display: block;
+      padding: 18px 20px;
+      background: #f6f8fa;
+      color: var(--md-on-surface);
+      font-size: 0.875em;
+      line-height: 1.65;
+      overflow-x: auto;
+      border: none;
+      border-radius: 0;
+    }
+
+    /* Language label badge in code blocks */
+    .code-lang-badge {
+      display: inline-block;
+      position: absolute;
+      top: 0; left: 0;
+      padding: 2px 10px;
+      font-family: var(--font-mono);
+      font-size: 0.7rem;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      background: var(--md-outline);
+      color: var(--md-secondary);
+      border-bottom-right-radius: var(--radius-sm);
+    }
+
+    /* Copy code button (injected per block) */
+    .copy-code-btn {
+      position: absolute;
+      top: 6px; right: 8px;
+      width: 30px; height: 30px;
+      border-radius: var(--radius-sm);
+      background: rgba(255,255,255,0.85);
+      border: 1px solid var(--md-outline);
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      color: var(--md-secondary);
+      transition: all var(--transition);
+      backdrop-filter: blur(4px);
+    }
+    .copy-code-btn:hover {
+      background: #fff;
+      color: var(--md-primary);
+      box-shadow: var(--md-shadow-1);
+    }
+    .copy-code-btn.copied {
+      background: #e6f4ea;
+      color: var(--md-success);
+      border-color: #a8d5b5;
+    }
+    .copy-code-btn .material-icons { font-size: 15px; }
+
+    /* Tables (GitHub style) */
+    .preview-content table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 1.25em 0;
+      font-size: 0.9em;
+      box-shadow: var(--md-shadow-1);
+      border-radius: var(--radius-md);
+      overflow: hidden;
+    }
+    .preview-content thead { background: var(--md-surface-2); }
+    .preview-content th {
+      text-align: left;
+      padding: 10px 16px;
+      font-weight: 600;
+      font-size: 0.8125rem;
+      letter-spacing: 0.03em;
+      text-transform: uppercase;
+      border-bottom: 2px solid var(--md-outline);
+      color: var(--md-secondary);
+    }
+    .preview-content td {
+      padding: 10px 16px;
+      border-bottom: 1px solid var(--md-outline);
+    }
+    .preview-content tr:last-child td { border-bottom: none; }
+    .preview-content tbody tr:hover { background: var(--md-surface-1); }
+
+    /* Images */
+    .preview-content img {
+      max-width: 100%;
+      border-radius: var(--radius-md);
+      box-shadow: var(--md-shadow-1);
+    }
+
+    /* Task lists */
+    .preview-content input[type="checkbox"] {
+      accent-color: var(--md-primary);
+      margin-right: 6px;
+    }
+
+    /* Empty state */
+    .preview-empty {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 16px;
+      height: 100%;
+      min-height: 400px;
+      color: var(--md-on-surface-v);
+      text-align: center;
+    }
+    .preview-empty .material-icons {
+      font-size: 56px;
+      color: var(--md-outline);
+    }
+    .preview-empty__title { font-size: 1rem; font-weight: 600; }
+    .preview-empty__sub { font-size: 0.875rem; max-width: 260px; line-height: 1.6; }
+
+    /* ===================================================
+       SNACKBAR (Material toast)
+    =================================================== */
+    .snackbar {
+      position: fixed;
+      bottom: 24px; left: 50%;
+      transform: translateX(-50%) translateY(80px);
+      background: #3c4043;
+      color: #fff;
+      padding: 14px 20px;
+      border-radius: var(--radius-md);
+      font-size: 0.875rem;
+      font-weight: 500;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      box-shadow: var(--md-shadow-3);
+      z-index: 9999;
+      transition: transform 300ms cubic-bezier(.2,0,0,1);
+      min-width: 240px;
+      white-space: nowrap;
+    }
+    .snackbar.show { transform: translateX(-50%) translateY(0); }
+    .snackbar .material-icons { font-size: 18px; color: #8ab4f8; }
+
+    /* ===================================================
+       WORD COUNT BAR
+    =================================================== */
+    .stat-bar {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      padding: 8px 20px;
+      background: var(--md-surface-1);
+      border-top: 1px solid var(--md-outline);
+      font-size: 0.75rem;
+      color: var(--md-on-surface-v);
+      flex-wrap: wrap;
+    }
+    .stat-item { display: flex; align-items: center; gap: 4px; }
+    .stat-item strong { color: var(--md-on-surface); font-weight: 600; }
+
+    /* ===================================================
+       TOOLBAR ACTIONS (clear, sample)
+    =================================================== */
+    .editor-toolbar {
+      display: flex;
+      gap: 4px;
+      padding: 8px 12px;
+      background: var(--md-surface-1);
+      border-bottom: 1px solid var(--md-outline);
+      flex-wrap: wrap;
+      align-items: center;
+    }
+    .toolbar-sep {
+      width: 1px; height: 20px;
+      background: var(--md-outline);
+      margin: 0 4px;
+    }
+
+    /* ===================================================
+       LOADING SPINNER
+    =================================================== */
+    .spinner {
+      width: 20px; height: 20px;
+      border: 2px solid var(--md-outline);
+      border-top-color: var(--md-primary);
+      border-radius: 50%;
+      animation: spin 0.6s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ===================================================
+       RESPONSIVE
+    =================================================== */
+    @media (max-width: 640px) {
+      .main { padding: 16px; }
+      .app-bar { padding: 0 16px; }
+      .app-bar__title { font-size: 1rem; }
+      .preview-content { padding: 20px 16px; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ===== TOP APP BAR ===== -->
+  <header class="app-bar">
+    <a class="app-bar__logo" href="#">
+      <div class="app-bar__icon">
+        <span class="material-icons">article</span>
+      </div>
+      <span class="app-bar__title">Mark<span>Flow</span></span>
+    </a>
+    <div class="app-bar__spacer"></div>
+    <span class="app-bar__badge">v2.0</span>
+  </header>
+
+  <!-- ===== MODE TAB BAR ===== -->
+  <nav class="tab-bar" role="tablist">
+    <button class="tab-btn active" id="tab-upload" role="tab" aria-selected="true" onclick="switchMode('upload')">
+      <span class="material-icons">upload_file</span> File Upload
+    </button>
+    <button class="tab-btn" id="tab-editor" role="tab" aria-selected="false" onclick="switchMode('editor')">
+      <span class="material-icons">edit_note</span> Live Editor
+    </button>
+  </nav>
+
+  <!-- ===== MAIN CONTENT ===== -->
+  <main class="main" role="main">
+
+    <!-- ==========================================
+         UPLOAD MODE
+    =========================================== -->
+    <div class="mode-panel active" id="panel-upload">
+
+      <!-- Drop zone card -->
+      <div class="md-card">
+        <div class="card-header">
+          <span class="card-header__title">
+            <span class="material-icons">cloud_upload</span>
+            Upload Markdown File
+          </span>
+        </div>
+        <div style="padding: 24px;">
+          <div
+            class="upload-zone"
+            id="drop-zone"
+            onclick="document.getElementById('file-input').click()"
+            ondragover="handleDragOver(event)"
+            ondragleave="handleDragLeave(event)"
+            ondrop="handleDrop(event)"
+            role="button"
+            aria-label="Upload markdown file"
+            tabindex="0"
+          >
+            <div class="upload-zone__icon">
+              <span class="material-icons">description</span>
+            </div>
+            <div class="upload-zone__title">Drop your .md file here</div>
+            <div class="upload-zone__subtitle">Drag &amp; drop a Markdown file, or click anywhere in this zone to browse files</div>
+            <span class="upload-zone__chip">.md files only</span>
+          </div>
+          <input type="file" id="file-input" accept=".md,text/markdown,.markdown" onchange="handleFileInput(event)" />
+          <div class="file-info" id="file-info">
+            <span class="material-icons">check_circle</span>
+            <span id="file-name-display">file.md</span>
+            <div style="flex:1"></div>
+            <button class="btn-text" onclick="clearUpload()" title="Remove file">
+              <span class="material-icons">close</span> Clear
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Preview card (upload) -->
+      <div class="md-card md-card--elevated" id="upload-preview-card" style="display:none;">
+        <div class="card-header">
+          <span class="card-header__title">
+            <span class="material-icons">preview</span>
+            Preview
+          </span>
+          <div class="card-header__spacer"></div>
+          <span class="card-header__badge" id="upload-word-count">0 words</span>
+        </div>
+        <div class="preview-content" id="upload-preview"></div>
+        <div class="export-bar">
+          <span style="font-size:0.8rem;font-weight:600;color:var(--md-secondary);margin-right:4px;">Export:</span>
+          <button class="btn-tonal btn-export-html" onclick="exportHTML('upload')" title="Download as HTML">
+            <span class="material-icons">code</span> HTML
+          </button>
+          <button class="btn-tonal btn-export-pdf" onclick="exportPDF('upload')" title="Download as PDF">
+            <span class="material-icons">picture_as_pdf</span> PDF
+          </button>
+          <button class="btn-tonal btn-export-word" onclick="exportWord('upload')" title="Download as Word">
+            <span class="material-icons">text_snippet</span> Word
+          </button>
+        </div>
+      </div>
+
+    </div>
+    <!-- end upload panel -->
+
+
+    <!-- ==========================================
+         LIVE EDITOR MODE
+    =========================================== -->
+    <div class="mode-panel" id="panel-editor">
+      <div class="split-screen">
+
+        <!-- LEFT: Editor pane -->
+        <div class="md-card editor-pane">
+          <div class="card-header">
+            <span class="card-header__title">
+              <span class="material-icons">edit</span>
+              Markdown Input
+            </span>
+            <div class="card-header__spacer"></div>
+          </div>
+          <!-- Editor toolbar -->
+          <div class="editor-toolbar">
+            <button class="btn-text" onclick="insertSyntax('**', '**')" title="Bold"><span class="material-icons" style="font-size:16px">format_bold</span></button>
+            <button class="btn-text" onclick="insertSyntax('*', '*')" title="Italic"><span class="material-icons" style="font-size:16px">format_italic</span></button>
+            <button class="btn-text" onclick="insertSyntax('`', '`')" title="Inline Code"><span class="material-icons" style="font-size:16px">code</span></button>
+            <button class="btn-text" onclick="insertSyntax('\n```\n', '\n```')" title="Code Block"><span class="material-icons" style="font-size:16px">integration_instructions</span></button>
+            <div class="toolbar-sep"></div>
+            <button class="btn-text" onclick="insertSyntax('## ', '')" title="Heading"><span class="material-icons" style="font-size:16px">title</span></button>
+            <button class="btn-text" onclick="insertSyntax('\n> ', '')" title="Blockquote"><span class="material-icons" style="font-size:16px">format_quote</span></button>
+            <button class="btn-text" onclick="insertSyntax('\n- ', '')" title="Unordered list"><span class="material-icons" style="font-size:16px">format_list_bulleted</span></button>
+            <button class="btn-text" onclick="insertSyntax('[', '](url)')" title="Link"><span class="material-icons" style="font-size:16px">link</span></button>
+            <div class="toolbar-sep"></div>
+            <button class="btn-text" onclick="loadSample()" title="Load sample content"><span class="material-icons" style="font-size:16px">auto_awesome</span> Sample</button>
+            <button class="btn-text" onclick="clearEditor()" title="Clear editor"><span class="material-icons" style="font-size:16px">delete_outline</span> Clear</button>
+          </div>
+          <textarea
+            class="md-textarea"
+            id="md-editor"
+            placeholder="# Start writing Markdown here...
+
+Type and see the live preview on the right →"
+            oninput="updatePreview()"
+            spellcheck="false"
+          ></textarea>
+          <div class="stat-bar" id="editor-stats">
+            <div class="stat-item">Lines: <strong id="stat-lines">0</strong></div>
+            <div class="stat-item">Words: <strong id="stat-words">0</strong></div>
+            <div class="stat-item">Characters: <strong id="stat-chars">0</strong></div>
+          </div>
+        </div>
+
+        <!-- RIGHT: Preview pane -->
+        <div class="md-card preview-pane">
+          <div class="card-header">
+            <span class="card-header__title">
+              <span class="material-icons">visibility</span>
+              Live Preview
+            </span>
+            <div class="card-header__spacer"></div>
+          </div>
+          <div class="preview-content" id="editor-preview">
+            <!-- empty state -->
+            <div class="preview-empty" id="editor-empty-state">
+              <span class="material-icons">article</span>
+              <div class="preview-empty__title">Nothing yet</div>
+              <div class="preview-empty__sub">Start typing Markdown on the left and your formatted preview will appear here instantly.</div>
+            </div>
+          </div>
+          <div class="export-bar">
+            <span style="font-size:0.8rem;font-weight:600;color:var(--md-secondary);margin-right:4px;">Export:</span>
+            <button class="btn-tonal btn-export-html" onclick="exportHTML('editor')" title="Download as HTML">
+              <span class="material-icons">code</span> HTML
+            </button>
+            <button class="btn-tonal btn-export-pdf" onclick="exportPDF('editor')" title="Download as PDF">
+              <span class="material-icons">picture_as_pdf</span> PDF
+            </button>
+            <button class="btn-tonal btn-export-word" onclick="exportWord('editor')" title="Download as Word">
+              <span class="material-icons">text_snippet</span> Word
+            </button>
+          </div>
+        </div>
+
+      </div>
+    </div>
+    <!-- end editor panel -->
+
+  </main>
+
+  <!-- ===== SNACKBAR ===== -->
+  <div class="snackbar" id="snackbar" role="status" aria-live="polite">
+    <span class="material-icons" id="snackbar-icon">check_circle</span>
+    <span id="snackbar-text">Done!</span>
+  </div>
+
+
+  <script>
+    // =====================================================
+    //  MARKFLOW — script.js
+    //  Sections:
+    //    1. Marked.js configuration
+    //    2. Mode switching
+    //    3. File upload logic
+    //    4. Live editor / preview
+    //    5. Copy-code button injection
+    //    6. Toolbar helpers
+    //    7. Export: HTML, PDF, Word
+    //    8. Snackbar notifications
+    //    9. Sample content
+    //   10. Init
+    // =====================================================
+
+    // ─────────────────────────────────────────────────────
+    // 1. Configure Marked.js (v4 compatible API)
+    // ─────────────────────────────────────────────────────
+
+    // Custom renderer — must be created BEFORE setOptions
+    const renderer = new marked.Renderer();
+
+    // Override code block rendering to add data-lang + hljs highlighting
+    // In marked v4, renderer.code(code, lang, isEscaped)
+    renderer.code = function(code, lang) {
+      const safeCode = String(code || '');
+      const safeLang = String(lang || '').trim().toLowerCase();
+
+      let highlighted;
+      if (safeLang && hljs.getLanguage(safeLang)) {
+        try {
+          highlighted = hljs.highlight(safeCode, { language: safeLang }).value;
+        } catch(e) {
+          highlighted = hljs.highlightAuto(safeCode).value;
+        }
+      } else {
+        highlighted = hljs.highlightAuto(safeCode).value;
+      }
+
+      // data-lang drives the badge + copy button injection later
+      return `<pre data-lang="${safeLang}"><code class="hljs${safeLang ? ' language-' + safeLang : ''}">${highlighted}</code></pre>`;
+    };
+
+    // Apply options once with the renderer
+    marked.setOptions({
+      renderer: renderer,
+      gfm: true,
+      breaks: true,
+      pedantic: false,
+      sanitize: false,
+      smartLists: true,
+      smartypants: false
+    });
+
+    // ─────────────────────────────────────────────────────
+    // 1b. Safe markdown → HTML helper
+    //     Guards against any marked API returning a Promise
+    // ─────────────────────────────────────────────────────
+    function parseMarkdown(md) {
+      try {
+        const result = marked.parse(md);
+        // marked v4 returns a string synchronously
+        if (typeof result === 'string') return result;
+        // Fallback: if somehow async, return empty (shouldn't happen in v4)
+        return '';
+      } catch(e) {
+        console.error('Marked parse error:', e);
+        return '<p style="color:red">Parse error: ' + e.message + '</p>';
+      }
+    }
+    // ─────────────────────────────────────────────────────
+    function switchMode(mode) {
+      document.querySelectorAll('.mode-panel').forEach(p => p.classList.remove('active'));
+      document.querySelectorAll('.tab-btn').forEach(b => {
+        b.classList.remove('active');
+        b.setAttribute('aria-selected', 'false');
+      });
+      document.getElementById(`panel-${mode}`).classList.add('active');
+      const tab = document.getElementById(`tab-${mode}`);
+      tab.classList.add('active');
+      tab.setAttribute('aria-selected', 'true');
+    }
+
+    // ─────────────────────────────────────────────────────
+    // 3. File upload logic
+    // ─────────────────────────────────────────────────────
+
+    /** Handle drag-over: highlight drop zone */
+    function handleDragOver(e) {
+      e.preventDefault();
+      e.stopPropagation();
+      document.getElementById('drop-zone').classList.add('drag-over');
+    }
+
+    /** Handle drag-leave: remove highlight */
+    function handleDragLeave(e) {
+      document.getElementById('drop-zone').classList.remove('drag-over');
+    }
+
+    /** Handle file drop event */
+    function handleDrop(e) {
+      e.preventDefault();
+      e.stopPropagation();
+      document.getElementById('drop-zone').classList.remove('drag-over');
+      const files = e.dataTransfer.files;
+      if (files.length > 0) processFile(files[0]);
+    }
+
+    /** Handle file input change */
+    function handleFileInput(e) {
+      if (e.target.files.length > 0) processFile(e.target.files[0]);
+    }
+
+    /** Read and render an uploaded .md file */
+    function processFile(file) {
+      if (!file.name.match(/\.(md|markdown)$/i)) {
+        showSnackbar('Only .md or .markdown files are supported.', 'warning', 'error');
+        return;
+      }
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        const markdown = e.target.result;
+        renderUploadPreview(markdown);
+        // Show file info chip
+        document.getElementById('file-name-display').textContent = file.name;
+        document.getElementById('file-info').classList.add('visible');
+        showSnackbar(`"${file.name}" uploaded and rendered.`, 'check_circle');
+      };
+      reader.onerror = () => showSnackbar('Failed to read the file.', 'error');
+      reader.readAsText(file);
+    }
+
+    /** Render markdown into the upload preview pane */
+    function renderUploadPreview(markdown) {
+      const html = parseMarkdown(markdown);
+      const preview = document.getElementById('upload-preview');
+      preview.innerHTML = html;
+      injectCopyButtons(preview);
+      // Show preview card
+      document.getElementById('upload-preview-card').style.display = 'block';
+      // Word count
+      const wordCount = markdown.trim().split(/\s+/).filter(Boolean).length;
+      document.getElementById('upload-word-count').textContent = `${wordCount.toLocaleString()} words`;
+    }
+
+    /** Clear the upload state */
+    function clearUpload() {
+      document.getElementById('upload-preview').innerHTML = '';
+      document.getElementById('upload-preview-card').style.display = 'none';
+      document.getElementById('file-info').classList.remove('visible');
+      document.getElementById('file-input').value = '';
+      showSnackbar('File cleared.', 'info', 'info');
+    }
+
+    // ─────────────────────────────────────────────────────
+    // 4. Live editor — real-time preview update
+    // ─────────────────────────────────────────────────────
+
+    // Stable reference to the empty-state node (assigned in DOMContentLoaded)
+    let _emptyStateEl = null;
+
+    function updatePreview() {
+      const markdown = document.getElementById('md-editor').value;
+      const preview  = document.getElementById('editor-preview');
+
+      if (!markdown.trim()) {
+        preview.innerHTML = '';
+        if (_emptyStateEl && !preview.contains(_emptyStateEl)) preview.appendChild(_emptyStateEl);
+        updateStats('');
+        return;
+      }
+
+      const html = parseMarkdown(markdown);
+      preview.innerHTML = html;
+      injectCopyButtons(preview);
+      updateStats(markdown);
+    }
+
+    /** Update word / line / char stats */
+    function updateStats(markdown) {
+      const lines = markdown ? markdown.split('\n').length : 0;
+      const words = markdown.trim() ? markdown.trim().split(/\s+/).filter(Boolean).length : 0;
+      const chars = markdown.length;
+      document.getElementById('stat-lines').textContent = lines.toLocaleString();
+      document.getElementById('stat-words').textContent = words.toLocaleString();
+      document.getElementById('stat-chars').textContent = chars.toLocaleString();
+    }
+
+    // ─────────────────────────────────────────────────────
+    // 5. Inject "Copy Code" buttons into every <pre> block
+    // ─────────────────────────────────────────────────────
+    function injectCopyButtons(container) {
+      container.querySelectorAll('pre').forEach(pre => {
+        // Avoid double-injecting
+        if (pre.querySelector('.copy-code-btn')) return;
+
+        // Language badge
+        const lang = pre.getAttribute('data-lang') || '';
+        if (lang) {
+          const badge = document.createElement('span');
+          badge.className = 'code-lang-badge';
+          badge.textContent = lang;
+          pre.insertBefore(badge, pre.firstChild);
+        }
+
+        // Copy button
+        const btn = document.createElement('button');
+        btn.className = 'copy-code-btn';
+        btn.title = 'Copy code';
+        btn.innerHTML = '<span class="material-icons">content_copy</span>';
+        btn.addEventListener('click', function(e) {
+          e.stopPropagation();
+          const code = pre.querySelector('code');
+          if (!code) return;
+          navigator.clipboard.writeText(code.innerText).then(() => {
+            btn.classList.add('copied');
+            btn.innerHTML = '<span class="material-icons">check</span>';
+            setTimeout(() => {
+              btn.classList.remove('copied');
+              btn.innerHTML = '<span class="material-icons">content_copy</span>';
+            }, 2000);
+          }).catch(() => showSnackbar('Copy failed — check browser permissions.', 'error'));
+        });
+        pre.appendChild(btn);
+      });
+    }
+
+    // ─────────────────────────────────────────────────────
+    // 6. Toolbar helpers (bold, italic, insert syntax)
+    // ─────────────────────────────────────────────────────
+
+    /** Insert Markdown syntax around the selected text in the editor */
+    function insertSyntax(prefix, suffix) {
+      const ta = document.getElementById('md-editor');
+      const start = ta.selectionStart;
+      const end   = ta.selectionEnd;
+      const selected = ta.value.substring(start, end);
+      const newText = prefix + selected + suffix;
+      ta.value = ta.value.substring(0, start) + newText + ta.value.substring(end);
+      // Place cursor after inserted text
+      ta.selectionStart = ta.selectionEnd = start + newText.length;
+      ta.focus();
+      updatePreview();
+    }
+
+    /** Clear the live editor */
+    function clearEditor() {
+      if (document.getElementById('md-editor').value && !confirm('Clear all content?')) return;
+      document.getElementById('md-editor').value = '';
+      updatePreview();
+    }
+
+    // ─────────────────────────────────────────────────────
+    // 7. Export functions: HTML, PDF, Word
+    // ─────────────────────────────────────────────────────
+
+    /** Get the innerHTML of the active preview pane */
+    function getPreviewHTML(source) {
+      const el = source === 'upload'
+        ? document.getElementById('upload-preview')
+        : document.getElementById('editor-preview');
+      return el ? el.innerHTML : '';
+    }
+
+    /** Build a standalone HTML file wrapping the preview content */
+    function buildStandaloneHTML(innerHtml) {
+      return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Exported by MarkFlow</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css"/>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+  <style>
+    body { font-family: 'DM Sans', sans-serif; max-width: 860px; margin: 40px auto; padding: 0 24px; color: #202124; line-height: 1.75; }
+    h1,h2,h3,h4,h5,h6 { font-weight: 700; margin: 1.5em 0 0.6em; }
+    h1 { font-size:2em; padding-bottom:.3em; border-bottom:2px solid #dadce0; }
+    h2 { font-size:1.5em; padding-bottom:.2em; border-bottom:1px solid #dadce0; }
+    a { color:#1a73e8; } code { font-family:'DM Mono',monospace; background:#f6f8fa; padding:2px 6px; border-radius:4px; font-size:.875em; border:1px solid #dadce0; }
+    pre { border:1px solid #dadce0; border-radius:8px; overflow:hidden; margin:1.25em 0; }
+    pre code { display:block; padding:18px 20px; background:#f6f8fa; overflow-x:auto; border:none; }
+    blockquote { border-left:4px solid #1a73e8; background:#e8f0fe; padding:12px 20px; margin:1.25em 0; border-radius:0 8px 8px 0; color:#5f6368; font-style:italic; }
+    table { width:100%; border-collapse:collapse; margin:1.25em 0; }
+    th { text-align:left; padding:10px 16px; background:#f1f3f4; font-weight:600; border-bottom:2px solid #dadce0; font-size:.8125em; text-transform:uppercase; letter-spacing:.03em; }
+    td { padding:10px 16px; border-bottom:1px solid #dadce0; }
+    img { max-width:100%; border-radius:8px; }
+    hr { border:none; border-top:1px solid #dadce0; margin:2em 0; }
+    .copy-code-btn { display:none; }
+    .code-lang-badge { display:inline-block; padding:2px 10px; font-family:'DM Mono',monospace; font-size:.7rem; font-weight:600; letter-spacing:.08em; text-transform:uppercase; background:#dadce0; color:#5f6368; border-bottom-right-radius:4px; }
+  </style>
+</head>
+<body>
+${innerHtml}
+</body>
+</html>`;
+    }
+
+    /** EXPORT: Download as .html */
+    function exportHTML(source) {
+      const inner = getPreviewHTML(source);
+      if (!inner || !inner.trim()) { showSnackbar('Nothing to export — preview is empty.', 'warning'); return; }
+      const html = buildStandaloneHTML(inner);
+      downloadBlob(html, 'markflow-export.html', 'text/html');
+      showSnackbar('HTML file downloaded!', 'check_circle');
+    }
+
+    /** EXPORT: Download as .pdf via html2pdf.js */
+    function exportPDF(source) {
+      const el = source === 'upload'
+        ? document.getElementById('upload-preview')
+        : document.getElementById('editor-preview');
+      if (!el || !el.innerHTML.trim()) { showSnackbar('Nothing to export — preview is empty.', 'warning'); return; }
+      showSnackbar('Generating PDF…', 'picture_as_pdf');
+      // Clone the preview, hide copy buttons
+      const clone = el.cloneNode(true);
+      clone.querySelectorAll('.copy-code-btn, .code-lang-badge').forEach(n => n.remove());
+      clone.style.padding = '32px';
+      clone.style.fontFamily = "'DM Sans', sans-serif";
+      clone.style.color = '#202124';
+      const opts = {
+        margin: [10, 10, 10, 10],
+        filename: 'markflow-export.pdf',
+        image: { type: 'jpeg', quality: 0.98 },
+        html2canvas: { scale: 2, useCORS: true },
+        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+      };
+      html2pdf().set(opts).from(clone).save().then(() => {
+        showSnackbar('PDF downloaded!', 'check_circle');
+      });
+    }
+
+    /** EXPORT: Download as .docx via html-docx-js */
+    function exportWord(source) {
+      const inner = getPreviewHTML(source);
+      if (!inner || !inner.trim()) { showSnackbar('Nothing to export — preview is empty.', 'warning'); return; }
+      // html-docx-js requires a full HTML document string
+      const html = buildStandaloneHTML(inner);
+      try {
+        const blob = htmlDocx.asBlob(html);
+        const url  = URL.createObjectURL(blob);
+        const a    = document.createElement('a');
+        a.href     = url;
+        a.download = 'markflow-export.docx';
+        a.click();
+        URL.revokeObjectURL(url);
+        showSnackbar('Word document downloaded!', 'check_circle');
+      } catch(e) {
+        showSnackbar('Word export failed. Please try HTML export.', 'error');
+        console.error('Word export error:', e);
+      }
+    }
+
+    /** Generic blob downloader */
+    function downloadBlob(content, filename, mimeType) {
+      const blob = new Blob([content], { type: mimeType });
+      const url  = URL.createObjectURL(blob);
+      const a    = document.createElement('a');
+      a.href     = url;
+      a.download = filename;
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+
+    // ─────────────────────────────────────────────────────
+    // 8. Snackbar notification
+    // ─────────────────────────────────────────────────────
+    let snackTimer = null;
+    function showSnackbar(message, icon = 'info', type = 'default') {
+      const bar  = document.getElementById('snackbar');
+      const txt  = document.getElementById('snackbar-text');
+      const ico  = document.getElementById('snackbar-icon');
+      txt.textContent = message;
+      ico.textContent = icon;
+      // Type colors
+      bar.style.background = type === 'error' ? '#b00020' : type === 'warning' ? '#e37400' : '#3c4043';
+      bar.classList.add('show');
+      clearTimeout(snackTimer);
+      snackTimer = setTimeout(() => bar.classList.remove('show'), 3000);
+    }
+
+    // ─────────────────────────────────────────────────────
+    // 9. Sample Markdown content
+    // ─────────────────────────────────────────────────────
+    const SAMPLE_MARKDOWN = `# MarkFlow — Sample Document
+
+> A comprehensive showcase of Markdown features rendered beautifully.
+
+## Introduction
+
+Welcome to **MarkFlow**, an advanced Markdown converter built with [Material Design](https://m3.material.io/). This sample demonstrates all supported elements.
+
+---
+
+## Text Formatting
+
+Normal text, **bold text**, *italic text*, ~~strikethrough~~, and \`inline code\`.
+
+You can also write [links](https://example.com) and combine **_bold italic_** text.
+
+---
+
+## Code Blocks
+
+### JavaScript
+\`\`\`javascript
+// Fibonacci with memoization
+function fib(n, memo = {}) {
+  if (n <= 1) return n;
+  if (memo[n]) return memo[n];
+  memo[n] = fib(n - 1, memo) + fib(n - 2, memo);
+  return memo[n];
+}
+
+console.log(fib(40)); // 102334155
+\`\`\`
+
+### Python
+\`\`\`python
+from functools import lru_cache
+
+@lru_cache(maxsize=None)
+def fibonacci(n: int) -> int:
+    if n < 2:
+        return n
+    return fibonacci(n - 1) + fibonacci(n - 2)
+
+print(fibonacci(50))  # 12586269025
+\`\`\`
+
+---
+
+## Lists
+
+### Unordered
+- Material Design 3 components
+- Syntax highlighting via Highlight.js
+- Real-time live preview
+  - Nested item one
+  - Nested item two
+
+### Ordered
+1. Upload a \`.md\` file **or** use the Live Editor
+2. Preview renders instantly
+3. Export to HTML, PDF, or Word
+
+---
+
+## Blockquote
+
+> "Any application that can be written in JavaScript, will eventually be written in JavaScript."
+>
+> — Jeff Atwood
+
+---
+
+## Table
+
+| Feature         | Status  | Notes                         |
+|-----------------|---------|-------------------------------|
+| File Upload     | ✅ Done  | Drag & drop supported         |
+| Live Editor     | ✅ Done  | Real-time rendering           |
+| Copy Code       | ✅ Done  | Per-block clipboard button    |
+| HTML Export     | ✅ Done  | Standalone file               |
+| PDF Export      | ✅ Done  | Via html2pdf.js               |
+| Word Export     | ✅ Done  | Via html-docx-js              |
+
+---
+
+## Task List
+
+- [x] Configure Marked.js renderer
+- [x] Add syntax highlighting
+- [x] Inject copy-code buttons
+- [ ] Add collaborative editing
+- [ ] Cloud sync support
+
+---
+
+## Horizontal Rule
+
+---
+
+Happy writing! 🎉
+`;
+
+    function loadSample() {
+      document.getElementById('md-editor').value = SAMPLE_MARKDOWN;
+      updatePreview();
+      showSnackbar('Sample content loaded!', 'auto_awesome');
+    }
+
+    // ─────────────────────────────────────────────────────
+    // 10. Initialise
+    // ─────────────────────────────────────────────────────
+    document.addEventListener('DOMContentLoaded', () => {
+      // Grab the empty-state node before any innerHTML wipes
+      _emptyStateEl = document.getElementById('editor-empty-state');
+
+      // Keyboard shortcut: Tab in textarea inserts 2 spaces
+      const editor = document.getElementById('md-editor');
+      editor.addEventListener('keydown', e => {
+        if (e.key === 'Tab') {
+          e.preventDefault();
+          const s = editor.selectionStart;
+          editor.value = editor.value.substring(0, s) + '  ' + editor.value.substring(editor.selectionEnd);
+          editor.selectionStart = editor.selectionEnd = s + 2;
+          updatePreview();
+        }
+      });
+
+      // Allow keyboard activation of the drop zone
+      document.getElementById('drop-zone').addEventListener('keypress', e => {
+        if (e.key === 'Enter' || e.key === ' ') document.getElementById('file-input').click();
+      });
+
+      // Prevent default drag events on the whole window (avoid browser opening files)
+      window.addEventListener('dragover', e => e.preventDefault());
+      window.addEventListener('drop',     e => e.preventDefault());
+    });
+  </script>
+</body>
+</html>
+`;
