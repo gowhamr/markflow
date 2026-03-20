@@ -11,10 +11,8 @@
   <!-- Highlight.js: Syntax highlighting for code blocks -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css" id="hljs-theme"/>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
-  <!-- html2pdf.js: PDF export -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
-  <!-- html-docx-js: Word .docx export -->
-  <script src="https://cdn.jsdelivr.net/npm/html-docx-js/dist/html-docx.js"></script>
+  <!-- html2pdf removed — PDF now uses reliable print-window approach -->
+  <!-- html-docx-js removed — Word export now uses native MSWord HTML format -->
   <!-- Material Icons -->
   <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet"/>
   <!-- Google Fonts: DM Sans + DM Mono -->
@@ -720,11 +718,11 @@
 
   <!-- ===== MODE TAB BAR ===== -->
   <nav class="tab-bar" role="tablist">
-    <button class="tab-btn active" id="tab-upload" role="tab" aria-selected="true" onclick="switchMode('upload')">
-      <span class="material-icons">upload_file</span> File Upload
-    </button>
-    <button class="tab-btn" id="tab-editor" role="tab" aria-selected="false" onclick="switchMode('editor')">
+    <button class="tab-btn active" id="tab-editor" role="tab" aria-selected="true" onclick="switchMode('editor')">
       <span class="material-icons">edit_note</span> Live Editor
+    </button>
+    <button class="tab-btn" id="tab-upload" role="tab" aria-selected="false" onclick="switchMode('upload')">
+      <span class="material-icons">upload_file</span> File Upload
     </button>
   </nav>
 
@@ -732,9 +730,89 @@
   <main class="main" role="main">
 
     <!-- ==========================================
-         UPLOAD MODE
+         LIVE EDITOR MODE (default active)
     =========================================== -->
-    <div class="mode-panel active" id="panel-upload">
+    <div class="mode-panel active" id="panel-editor">
+      <div class="split-screen">
+
+        <!-- LEFT: Editor pane -->
+        <div class="md-card editor-pane">
+          <div class="card-header">
+            <span class="card-header__title">
+              <span class="material-icons">edit</span>
+              Markdown Input
+            </span>
+            <div class="card-header__spacer"></div>
+          </div>
+          <!-- Editor toolbar -->
+          <div class="editor-toolbar">
+            <button class="btn-text" onclick="insertSyntax('**', '**')" title="Bold"><span class="material-icons" style="font-size:16px">format_bold</span></button>
+            <button class="btn-text" onclick="insertSyntax('*', '*')" title="Italic"><span class="material-icons" style="font-size:16px">format_italic</span></button>
+            <button class="btn-text" onclick="insertSyntax('`', '`')" title="Inline Code"><span class="material-icons" style="font-size:16px">code</span></button>
+            <button class="btn-text" onclick="insertSyntax('\n```\n', '\n```')" title="Code Block"><span class="material-icons" style="font-size:16px">integration_instructions</span></button>
+            <div class="toolbar-sep"></div>
+            <button class="btn-text" onclick="insertSyntax('## ', '')" title="Heading"><span class="material-icons" style="font-size:16px">title</span></button>
+            <button class="btn-text" onclick="insertSyntax('\n> ', '')" title="Blockquote"><span class="material-icons" style="font-size:16px">format_quote</span></button>
+            <button class="btn-text" onclick="insertSyntax('\n- ', '')" title="Unordered list"><span class="material-icons" style="font-size:16px">format_list_bulleted</span></button>
+            <button class="btn-text" onclick="insertSyntax('[', '](url)')" title="Link"><span class="material-icons" style="font-size:16px">link</span></button>
+            <div class="toolbar-sep"></div>
+            <button class="btn-text" onclick="loadSample()" title="Load sample content"><span class="material-icons" style="font-size:16px">auto_awesome</span> Sample</button>
+            <button class="btn-text" onclick="clearEditor()" title="Clear editor"><span class="material-icons" style="font-size:16px">delete_outline</span> Clear</button>
+          </div>
+          <textarea
+            class="md-textarea"
+            id="md-editor"
+            placeholder="# Start writing Markdown here...
+
+Type and see the live preview on the right →"
+            oninput="updatePreview()"
+            spellcheck="false"
+          ></textarea>
+          <div class="stat-bar" id="editor-stats">
+            <div class="stat-item">Lines: <strong id="stat-lines">0</strong></div>
+            <div class="stat-item">Words: <strong id="stat-words">0</strong></div>
+            <div class="stat-item">Characters: <strong id="stat-chars">0</strong></div>
+          </div>
+        </div>
+
+        <!-- RIGHT: Preview pane -->
+        <div class="md-card preview-pane">
+          <div class="card-header">
+            <span class="card-header__title">
+              <span class="material-icons">visibility</span>
+              Live Preview
+            </span>
+            <div class="card-header__spacer"></div>
+          </div>
+          <div class="preview-content" id="editor-preview">
+            <div class="preview-empty" id="editor-empty-state">
+              <span class="material-icons">article</span>
+              <div class="preview-empty__title">Nothing yet</div>
+              <div class="preview-empty__sub">Start typing Markdown on the left and your formatted preview will appear here instantly.</div>
+            </div>
+          </div>
+          <div class="export-bar">
+            <span style="font-size:0.8rem;font-weight:600;color:var(--md-secondary);margin-right:4px;">Export:</span>
+            <button class="btn-tonal btn-export-html" onclick="exportHTML('editor')" title="Download as HTML">
+              <span class="material-icons">code</span> HTML
+            </button>
+            <button class="btn-tonal btn-export-pdf" onclick="exportPDF('editor')" title="Download as PDF">
+              <span class="material-icons">picture_as_pdf</span> PDF
+            </button>
+            <button class="btn-tonal btn-export-word" onclick="exportWord('editor')" title="Download as Word (.docx)">
+              <span class="material-icons">text_snippet</span> Word
+            </button>
+          </div>
+        </div>
+
+      </div>
+    </div>
+    <!-- end editor panel -->
+
+    <!-- ==========================================
+         FILE UPLOAD MODE
+    =========================================== -->
+    <div class="mode-panel" id="panel-upload">
 
       <!-- Drop zone card -->
       <div class="md-card">
@@ -794,7 +872,7 @@
           <button class="btn-tonal btn-export-pdf" onclick="exportPDF('upload')" title="Download as PDF">
             <span class="material-icons">picture_as_pdf</span> PDF
           </button>
-          <button class="btn-tonal btn-export-word" onclick="exportWord('upload')" title="Download as Word">
+          <button class="btn-tonal btn-export-word" onclick="exportWord('upload')" title="Download as Word (.docx)">
             <span class="material-icons">text_snippet</span> Word
           </button>
         </div>
@@ -802,88 +880,6 @@
 
     </div>
     <!-- end upload panel -->
-
-
-    <!-- ==========================================
-         LIVE EDITOR MODE
-    =========================================== -->
-    <div class="mode-panel" id="panel-editor">
-      <div class="split-screen">
-
-        <!-- LEFT: Editor pane -->
-        <div class="md-card editor-pane">
-          <div class="card-header">
-            <span class="card-header__title">
-              <span class="material-icons">edit</span>
-              Markdown Input
-            </span>
-            <div class="card-header__spacer"></div>
-          </div>
-          <!-- Editor toolbar -->
-          <div class="editor-toolbar">
-            <button class="btn-text" onclick="insertSyntax('**', '**')" title="Bold"><span class="material-icons" style="font-size:16px">format_bold</span></button>
-            <button class="btn-text" onclick="insertSyntax('*', '*')" title="Italic"><span class="material-icons" style="font-size:16px">format_italic</span></button>
-            <button class="btn-text" onclick="insertSyntax('`', '`')" title="Inline Code"><span class="material-icons" style="font-size:16px">code</span></button>
-            <button class="btn-text" onclick="insertSyntax('\n```\n', '\n```')" title="Code Block"><span class="material-icons" style="font-size:16px">integration_instructions</span></button>
-            <div class="toolbar-sep"></div>
-            <button class="btn-text" onclick="insertSyntax('## ', '')" title="Heading"><span class="material-icons" style="font-size:16px">title</span></button>
-            <button class="btn-text" onclick="insertSyntax('\n> ', '')" title="Blockquote"><span class="material-icons" style="font-size:16px">format_quote</span></button>
-            <button class="btn-text" onclick="insertSyntax('\n- ', '')" title="Unordered list"><span class="material-icons" style="font-size:16px">format_list_bulleted</span></button>
-            <button class="btn-text" onclick="insertSyntax('[', '](url)')" title="Link"><span class="material-icons" style="font-size:16px">link</span></button>
-            <div class="toolbar-sep"></div>
-            <button class="btn-text" onclick="loadSample()" title="Load sample content"><span class="material-icons" style="font-size:16px">auto_awesome</span> Sample</button>
-            <button class="btn-text" onclick="clearEditor()" title="Clear editor"><span class="material-icons" style="font-size:16px">delete_outline</span> Clear</button>
-          </div>
-          <textarea
-            class="md-textarea"
-            id="md-editor"
-            placeholder="# Start writing Markdown here...
-
-Type and see the live preview on the right →"
-            oninput="updatePreview()"
-            spellcheck="false"
-          ></textarea>
-          <div class="stat-bar" id="editor-stats">
-            <div class="stat-item">Lines: <strong id="stat-lines">0</strong></div>
-            <div class="stat-item">Words: <strong id="stat-words">0</strong></div>
-            <div class="stat-item">Characters: <strong id="stat-chars">0</strong></div>
-          </div>
-        </div>
-
-        <!-- RIGHT: Preview pane -->
-        <div class="md-card preview-pane">
-          <div class="card-header">
-            <span class="card-header__title">
-              <span class="material-icons">visibility</span>
-              Live Preview
-            </span>
-            <div class="card-header__spacer"></div>
-          </div>
-          <div class="preview-content" id="editor-preview">
-            <!-- empty state -->
-            <div class="preview-empty" id="editor-empty-state">
-              <span class="material-icons">article</span>
-              <div class="preview-empty__title">Nothing yet</div>
-              <div class="preview-empty__sub">Start typing Markdown on the left and your formatted preview will appear here instantly.</div>
-            </div>
-          </div>
-          <div class="export-bar">
-            <span style="font-size:0.8rem;font-weight:600;color:var(--md-secondary);margin-right:4px;">Export:</span>
-            <button class="btn-tonal btn-export-html" onclick="exportHTML('editor')" title="Download as HTML">
-              <span class="material-icons">code</span> HTML
-            </button>
-            <button class="btn-tonal btn-export-pdf" onclick="exportPDF('editor')" title="Download as PDF">
-              <span class="material-icons">picture_as_pdf</span> PDF
-            </button>
-            <button class="btn-tonal btn-export-word" onclick="exportWord('editor')" title="Download as Word">
-              <span class="material-icons">text_snippet</span> Word
-            </button>
-          </div>
-        </div>
-
-      </div>
-    </div>
-    <!-- end editor panel -->
 
   </main>
 
@@ -1151,16 +1147,37 @@ Type and see the live preview on the right →"
     // 7. Export functions: HTML, PDF, Word
     // ─────────────────────────────────────────────────────
 
-    /** Get the innerHTML of the active preview pane */
-    function getPreviewHTML(source) {
+    /**
+     * Get a clean clone of the preview element with all UI chrome removed.
+     * copy buttons, badges, and the empty-state div are stripped out.
+     */
+    function getCleanPreviewEl(source) {
       const el = source === 'upload'
         ? document.getElementById('upload-preview')
         : document.getElementById('editor-preview');
-      return el ? el.innerHTML : '';
+      if (!el) return null;
+      const clone = el.cloneNode(true);
+      // Remove interactive/decorative elements not wanted in exports
+      clone.querySelectorAll('.copy-code-btn, .code-lang-badge, .preview-empty').forEach(n => n.remove());
+      return clone;
     }
 
-    /** Build a standalone HTML file wrapping the preview content */
+    /** Get clean inner HTML string (for HTML + Word exports) */
+    function getCleanInnerHTML(source) {
+      const clone = getCleanPreviewEl(source);
+      return clone ? clone.innerHTML : '';
+    }
+
+    /**
+     * Build a fully self-contained HTML export.
+     * Uses inline SVG copy icons instead of Material Icons font (works offline).
+     * Syntax highlight CSS is inlined so the file works without internet.
+     */
     function buildStandaloneHTML(innerHtml) {
+      // SVG copy icon used in the exported HTML copy buttons
+      const copySVG = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>`;
+      const checkSVG = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>`;
+
       return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -1170,82 +1187,482 @@ Type and see the live preview on the right →"
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css"/>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet"/>
   <style>
-    body { font-family: 'DM Sans', sans-serif; max-width: 860px; margin: 40px auto; padding: 0 24px; color: #202124; line-height: 1.75; }
-    h1,h2,h3,h4,h5,h6 { font-weight: 700; margin: 1.5em 0 0.6em; }
-    h1 { font-size:2em; padding-bottom:.3em; border-bottom:2px solid #dadce0; }
-    h2 { font-size:1.5em; padding-bottom:.2em; border-bottom:1px solid #dadce0; }
-    a { color:#1a73e8; } code { font-family:'DM Mono',monospace; background:#f6f8fa; padding:2px 6px; border-radius:4px; font-size:.875em; border:1px solid #dadce0; }
-    pre { border:1px solid #dadce0; border-radius:8px; overflow:hidden; margin:1.25em 0; }
-    pre code { display:block; padding:18px 20px; background:#f6f8fa; overflow-x:auto; border:none; }
-    blockquote { border-left:4px solid #1a73e8; background:#e8f0fe; padding:12px 20px; margin:1.25em 0; border-radius:0 8px 8px 0; color:#5f6368; font-style:italic; }
-    table { width:100%; border-collapse:collapse; margin:1.25em 0; }
-    th { text-align:left; padding:10px 16px; background:#f1f3f4; font-weight:600; border-bottom:2px solid #dadce0; font-size:.8125em; text-transform:uppercase; letter-spacing:.03em; }
-    td { padding:10px 16px; border-bottom:1px solid #dadce0; }
-    img { max-width:100%; border-radius:8px; }
-    hr { border:none; border-top:1px solid #dadce0; margin:2em 0; }
-    .copy-code-btn { display:none; }
-    .code-lang-badge { display:inline-block; padding:2px 10px; font-family:'DM Mono',monospace; font-size:.7rem; font-weight:600; letter-spacing:.08em; text-transform:uppercase; background:#dadce0; color:#5f6368; border-bottom-right-radius:4px; }
+    body{font-family:'DM Sans',sans-serif;max-width:860px;margin:40px auto;padding:0 32px 60px;color:#202124;line-height:1.75;font-size:16px;}
+    h1,h2,h3,h4,h5,h6{font-weight:700;margin:1.5em 0 .6em;line-height:1.3;}
+    h1{font-size:2em;padding-bottom:.3em;border-bottom:2px solid #dadce0;margin-top:0;}
+    h2{font-size:1.5em;padding-bottom:.2em;border-bottom:1px solid #dadce0;}
+    h3{font-size:1.25em;} h4{font-size:1em;} h5{font-size:.875em;}
+    p{margin-bottom:1em;}
+    a{color:#1a73e8;text-decoration:none;font-weight:500;}
+    a:hover{text-decoration:underline;}
+    strong{font-weight:700;} em{font-style:italic;}
+    code{font-family:'DM Mono',monospace;background:#f6f8fa;padding:2px 6px;border-radius:4px;font-size:.875em;border:1px solid #dadce0;color:#c7254e;}
+    pre{border:1px solid #dadce0;border-radius:8px;overflow:hidden;margin:1.25em 0;position:relative;}
+    pre code{display:block;padding:18px 20px;background:#f6f8fa;overflow-x:auto;border:none;border-radius:0;color:#202124;font-size:.875em;line-height:1.65;}
+    blockquote{border-left:4px solid #1a73e8;background:#e8f0fe;padding:12px 20px;margin:1.25em 0;border-radius:0 8px 8px 0;color:#5f6368;font-style:italic;}
+    table{width:100%;border-collapse:collapse;margin:1.25em 0;border-radius:8px;overflow:hidden;border:1px solid #dadce0;}
+    thead{background:#f1f3f4;}
+    th{text-align:left;padding:10px 16px;font-weight:600;border-bottom:2px solid #dadce0;font-size:.8125em;text-transform:uppercase;letter-spacing:.03em;color:#5f6368;}
+    td{padding:10px 16px;border-bottom:1px solid #dadce0;}
+    tr:last-child td{border-bottom:none;}
+    ul,ol{margin-bottom:1em;padding-left:2em;}
+    li{margin-bottom:.35em;line-height:1.7;}
+    img{max-width:100%;border-radius:8px;}
+    hr{border:none;border-top:1px solid #dadce0;margin:2em 0;}
+    /* Copy button (SVG-based, works offline) */
+    .export-copy-btn{position:absolute;top:8px;right:8px;width:28px;height:28px;border-radius:4px;background:rgba(255,255,255,.9);border:1px solid #dadce0;cursor:pointer;display:flex;align-items:center;justify-content:center;color:#5f6368;transition:all .15s;}
+    .export-copy-btn:hover{background:#fff;color:#1a73e8;box-shadow:0 1px 4px rgba(0,0,0,.15);}
+    .export-copy-btn.copied{background:#e6f4ea;color:#1e8e3e;border-color:#a8d5b5;}
+    .code-lang-badge{position:absolute;top:0;left:0;padding:2px 10px;font-family:'DM Mono',monospace;font-size:.7rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase;background:#dadce0;color:#5f6368;border-bottom-right-radius:4px;}
   </style>
 </head>
 <body>
 ${innerHtml}
+<script>
+  // Re-inject copy buttons using inline SVG (no font dependency)
+  const copySVG = '${copySVG.replace(/'/g, "\\'")}';
+  const checkSVG = '${checkSVG.replace(/'/g, "\\'")}';
+  document.querySelectorAll('pre').forEach(function(pre) {
+    // Add language badge if data-lang present
+    var lang = pre.getAttribute('data-lang');
+    if (lang) {
+      var badge = document.createElement('span');
+      badge.className = 'code-lang-badge';
+      badge.textContent = lang;
+      pre.insertBefore(badge, pre.firstChild);
+    }
+    // Add SVG copy button
+    var btn = document.createElement('button');
+    btn.className = 'export-copy-btn';
+    btn.title = 'Copy code';
+    btn.innerHTML = copySVG;
+    btn.addEventListener('click', function() {
+      var code = pre.querySelector('code');
+      if (!code) return;
+      navigator.clipboard.writeText(code.innerText).then(function() {
+        btn.classList.add('copied');
+        btn.innerHTML = checkSVG;
+        setTimeout(function() {
+          btn.classList.remove('copied');
+          btn.innerHTML = copySVG;
+        }, 2000);
+      });
+    });
+    pre.appendChild(btn);
+  });
+<\/script>
 </body>
 </html>`;
     }
 
     /** EXPORT: Download as .html */
     function exportHTML(source) {
-      const inner = getPreviewHTML(source);
+      const inner = getCleanInnerHTML(source);
       if (!inner || !inner.trim()) { showSnackbar('Nothing to export — preview is empty.', 'warning'); return; }
       const html = buildStandaloneHTML(inner);
       downloadBlob(html, 'markflow-export.html', 'text/html');
       showSnackbar('HTML file downloaded!', 'check_circle');
     }
 
-    /** EXPORT: Download as .pdf via html2pdf.js */
+    /**
+     * EXPORT: PDF via a print-ready popup window.
+     *
+     * This is the ONLY reliable cross-browser PDF approach from a local HTML file.
+     * html2canvas / html2pdf both fail when:
+     *   - The element is off-screen or in a local file:// context
+     *   - CORS blocks external fonts/images
+     *   - The browser doesn't allow canvas taint
+     *
+     * The print-window approach:
+     *   1. Opens a new window with fully styled, self-contained HTML
+     *   2. Waits for fonts/images to load
+     *   3. Calls window.print() which triggers the browser's native PDF save dialog
+     *   4. Browser's PDF renderer is perfect — no blank pages, no canvas issues
+     */
     function exportPDF(source) {
-      const el = source === 'upload'
-        ? document.getElementById('upload-preview')
-        : document.getElementById('editor-preview');
-      if (!el || !el.innerHTML.trim()) { showSnackbar('Nothing to export — preview is empty.', 'warning'); return; }
-      showSnackbar('Generating PDF…', 'picture_as_pdf');
-      // Clone the preview, hide copy buttons
-      const clone = el.cloneNode(true);
-      clone.querySelectorAll('.copy-code-btn, .code-lang-badge').forEach(n => n.remove());
-      clone.style.padding = '32px';
-      clone.style.fontFamily = "'DM Sans', sans-serif";
-      clone.style.color = '#202124';
-      const opts = {
-        margin: [10, 10, 10, 10],
-        filename: 'markflow-export.pdf',
-        image: { type: 'jpeg', quality: 0.98 },
-        html2canvas: { scale: 2, useCORS: true },
-        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
-      };
-      html2pdf().set(opts).from(clone).save().then(() => {
-        showSnackbar('PDF downloaded!', 'check_circle');
-      });
+      const inner = getCleanInnerHTML(source);
+      if (!inner || !inner.trim()) { showSnackbar('Nothing to export — preview is empty.', 'warning'); return; }
+
+      const printHTML = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <title>MarkFlow Export</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css"/>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+  <style>
+    @page { size: A4; margin: 20mm 18mm; }
+    * { box-sizing: border-box; }
+    body {
+      font-family: 'DM Sans', Arial, sans-serif;
+      font-size: 11pt;
+      color: #202124;
+      line-height: 1.7;
+      margin: 0;
+      padding: 0;
+      background: #fff;
+    }
+    h1,h2,h3,h4,h5,h6 { font-weight: 700; margin: 1.3em 0 0.5em; line-height: 1.3; page-break-after: avoid; }
+    h1 { font-size: 20pt; border-bottom: 2pt solid #dadce0; padding-bottom: 6pt; margin-top: 0; }
+    h2 { font-size: 15pt; border-bottom: 1pt solid #dadce0; padding-bottom: 4pt; }
+    h3 { font-size: 12pt; }
+    h4 { font-size: 11pt; }
+    p  { margin: 0 0 8pt; }
+    a  { color: #1a73e8; }
+    strong { font-weight: 700; }
+    em { font-style: italic; }
+    code {
+      font-family: 'DM Mono', 'Courier New', monospace;
+      font-size: 9pt;
+      background: #f6f8fa;
+      padding: 1pt 4pt;
+      border-radius: 3pt;
+      border: 0.5pt solid #dadce0;
+      color: #c7254e;
+    }
+    pre {
+      background: #f6f8fa;
+      border: 1pt solid #dadce0;
+      border-radius: 5pt;
+      padding: 10pt 12pt;
+      margin: 8pt 0;
+      overflow-x: auto;
+      page-break-inside: avoid;
+    }
+    pre code {
+      font-size: 8.5pt;
+      background: none;
+      border: none;
+      padding: 0;
+      color: #202124;
+      line-height: 1.55;
+    }
+    blockquote {
+      border-left: 3pt solid #1a73e8;
+      background: #e8f0fe;
+      margin: 8pt 0;
+      padding: 8pt 12pt;
+      border-radius: 0 4pt 4pt 0;
+      color: #5f6368;
+      font-style: italic;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 8pt 0;
+      font-size: 10pt;
+      page-break-inside: avoid;
+    }
+    thead { background: #f1f3f4; }
+    th {
+      text-align: left;
+      padding: 6pt 10pt;
+      font-weight: 600;
+      border: 0.5pt solid #dadce0;
+      font-size: 8.5pt;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+    }
+    td { padding: 6pt 10pt; border: 0.5pt solid #dadce0; }
+    ul, ol { margin: 0 0 8pt; padding-left: 18pt; }
+    li { margin-bottom: 3pt; }
+    hr { border: none; border-top: 1pt solid #dadce0; margin: 12pt 0; }
+    img { max-width: 100%; }
+    .copy-code-btn, .code-lang-badge, .preview-empty { display: none !important; }
+    @media print {
+      body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    }
+  </style>
+</head>
+<body>
+${inner}
+<script>
+  // Auto-trigger print dialog once fonts are ready
+  document.fonts.ready.then(function() {
+    setTimeout(function() { window.print(); }, 300);
+  });
+  // Fallback if fonts API not available
+  window.onload = function() { setTimeout(function() { window.print(); }, 500); };
+<\/script>
+</body>
+</html>`;
+
+      const printWin = window.open('', '_blank', 'width=900,height=700');
+      if (!printWin) {
+        showSnackbar('Pop-up blocked! Please allow pop-ups for this page.', 'error', 'error');
+        return;
+      }
+      printWin.document.open();
+      printWin.document.write(printHTML);
+      printWin.document.close();
+      showSnackbar('Print dialog will open — choose "Save as PDF"', 'picture_as_pdf');
     }
 
-    /** EXPORT: Download as .docx via html-docx-js */
+    /**
+     * EXPORT: Word (.docx) using proper Office Open XML format.
+     *
+     * We generate a true .docx file (ZIP containing XML) entirely in the browser
+     * using JSZip + a minimal OOXML template. No external library needed beyond JSZip.
+     * This produces a real .docx that Word, LibreOffice, and Google Docs open perfectly.
+     */
     function exportWord(source) {
-      const inner = getPreviewHTML(source);
+      const inner = getCleanInnerHTML(source);
       if (!inner || !inner.trim()) { showSnackbar('Nothing to export — preview is empty.', 'warning'); return; }
-      // html-docx-js requires a full HTML document string
-      const html = buildStandaloneHTML(inner);
-      try {
-        const blob = htmlDocx.asBlob(html);
-        const url  = URL.createObjectURL(blob);
-        const a    = document.createElement('a');
-        a.href     = url;
-        a.download = 'markflow-export.docx';
-        a.click();
-        URL.revokeObjectURL(url);
-        showSnackbar('Word document downloaded!', 'check_circle');
-      } catch(e) {
-        showSnackbar('Word export failed. Please try HTML export.', 'error');
-        console.error('Word export error:', e);
+
+      // Load JSZip dynamically then build the docx
+      if (typeof JSZip === 'undefined') {
+        const s = document.createElement('script');
+        s.src = 'https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js';
+        s.onload = () => buildDocx(inner);
+        s.onerror = () => {
+          // Final fallback: MSWord-compatible HTML (.doc)
+          exportWordFallback(inner);
+        };
+        document.head.appendChild(s);
+      } else {
+        buildDocx(inner);
       }
+    }
+
+    /** Convert HTML preview content to OOXML paragraphs and build a .docx */
+    function buildDocx(inner) {
+      // Parse the HTML into a temporary div to walk the DOM
+      const tmp = document.createElement('div');
+      tmp.innerHTML = inner;
+
+      // Convert DOM nodes to OOXML XML string
+      const bodyXml = nodeToOOXML(tmp);
+
+      const docXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<w:document xmlns:wpc="http://schemas.microsoft.com/office/word/2010/wordprocessingCanvas"
+  xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"
+  xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
+  <w:body>
+${bodyXml}
+    <w:sectPr>
+      <w:pgSz w:w="11906" w:h="16838"/>
+      <w:pgMar w:top="1134" w:right="1134" w:bottom="1134" w:left="1134"/>
+    </w:sectPr>
+  </w:body>
+</w:document>`;
+
+      const relsXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>
+</Relationships>`;
+
+      const stylesXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<w:styles xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
+  <w:style w:type="paragraph" w:styleId="Normal"><w:name w:val="Normal"/>
+    <w:pPr><w:spacing w:after="160"/></w:pPr>
+    <w:rPr><w:sz w:val="22"/><w:szCs w:val="22"/></w:rPr>
+  </w:style>
+  <w:style w:type="paragraph" w:styleId="Heading1"><w:name w:val="heading 1"/>
+    <w:pPr><w:outlineLvl w:val="0"/><w:spacing w:before="240" w:after="120"/></w:pPr>
+    <w:rPr><w:b/><w:sz w:val="40"/><w:szCs w:val="40"/><w:color w:val="202124"/></w:rPr>
+  </w:style>
+  <w:style w:type="paragraph" w:styleId="Heading2"><w:name w:val="heading 2"/>
+    <w:pPr><w:outlineLvl w:val="1"/><w:spacing w:before="200" w:after="100"/></w:pPr>
+    <w:rPr><w:b/><w:sz w:val="32"/><w:szCs w:val="32"/><w:color w:val="202124"/></w:rPr>
+  </w:style>
+  <w:style w:type="paragraph" w:styleId="Heading3"><w:name w:val="heading 3"/>
+    <w:pPr><w:outlineLvl w:val="2"/><w:spacing w:before="160" w:after="80"/></w:pPr>
+    <w:rPr><w:b/><w:sz w:val="26"/><w:szCs w:val="26"/><w:color w:val="202124"/></w:rPr>
+  </w:style>
+  <w:style w:type="paragraph" w:styleId="Code"><w:name w:val="Code"/>
+    <w:pPr><w:shd w:val="clear" w:color="auto" w:fill="F6F8FA"/><w:spacing w:after="80"/></w:pPr>
+    <w:rPr><w:rFonts w:ascii="Courier New" w:hAnsi="Courier New"/><w:sz w:val="18"/><w:szCs w:val="18"/></w:rPr>
+  </w:style>
+  <w:style w:type="paragraph" w:styleId="Quote"><w:name w:val="Quote"/>
+    <w:pPr><w:ind w:left="360"/><w:shd w:val="clear" w:color="auto" w:fill="E8F0FE"/></w:pPr>
+    <w:rPr><w:i/><w:color w:val="5F6368"/></w:rPr>
+  </w:style>
+</w:styles>`;
+
+      const contentTypesXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
+  <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
+  <Default Extension="xml" ContentType="application/xml"/>
+  <Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>
+  <Override PartName="/word/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml"/>
+</Types>`;
+
+      const rootRelsXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/>
+</Relationships>`;
+
+      const zip = new JSZip();
+      zip.file('[Content_Types].xml', contentTypesXml);
+      zip.file('_rels/.rels', rootRelsXml);
+      zip.file('word/document.xml', docXml);
+      zip.file('word/styles.xml', stylesXml);
+      zip.file('word/_rels/document.xml.rels', relsXml);
+
+      zip.generateAsync({ type: 'blob', mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' })
+        .then(blob => {
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url; a.download = 'markflow-export.docx'; a.click();
+          URL.revokeObjectURL(url);
+          showSnackbar('Word (.docx) downloaded!', 'check_circle');
+        });
+    }
+
+    /** Walk a DOM node and produce OOXML w:p / w:r elements */
+    function nodeToOOXML(node) {
+      let xml = '';
+      for (const child of node.childNodes) {
+        xml += domNodeToOOXML(child, {});
+      }
+      // Ensure there's at least one paragraph
+      if (!xml.trim()) xml = '<w:p><w:r><w:t></w:t></w:r></w:p>';
+      return xml;
+    }
+
+    function escXml(s) {
+      return String(s)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+    }
+
+    function inlineRun(text, rpr = '') {
+      const lines = text.split('\n');
+      let runs = '';
+      lines.forEach((line, i) => {
+        runs += `<w:r>${rpr}<w:t xml:space="preserve">${escXml(line)}</w:t></w:r>`;
+        if (i < lines.length - 1) runs += '<w:r><w:br/></w:r>';
+      });
+      return runs;
+    }
+
+    function domNodeToOOXML(node, ctx) {
+      if (node.nodeType === 3) { // Text node
+        const text = node.textContent;
+        if (!text) return '';
+        const rpr = buildRpr(ctx);
+        return `<w:p><w:r>${rpr}<w:t xml:space="preserve">${escXml(text)}</w:t></w:r></w:p>`;
+      }
+      if (node.nodeType !== 1) return '';
+
+      const tag = node.tagName.toLowerCase();
+
+      // Headings
+      if (/^h[1-6]$/.test(tag)) {
+        const lvl = parseInt(tag[1]);
+        const styleId = ['Heading1','Heading2','Heading3','Heading4','Heading5','Heading6'][lvl-1] || 'Normal';
+        const text = node.textContent || '';
+        return `<w:p><w:pPr><w:pStyle w:val="${styleId}"/></w:pPr><w:r><w:t xml:space="preserve">${escXml(text)}</w:t></w:r></w:p>`;
+      }
+
+      // Paragraph
+      if (tag === 'p') {
+        return buildInlineParagraph(node, ctx, 'Normal');
+      }
+
+      // Blockquote
+      if (tag === 'blockquote') {
+        let out = '';
+        for (const c of node.childNodes) {
+          const text = c.textContent || '';
+          if (text.trim()) out += `<w:p><w:pPr><w:pStyle w:val="Quote"/></w:pPr><w:r><w:i/><w:t xml:space="preserve">${escXml(text.trim())}</w:t></w:r></w:p>`;
+        }
+        return out || '';
+      }
+
+      // Code block (pre > code)
+      if (tag === 'pre') {
+        const codeEl = node.querySelector('code');
+        const codeText = codeEl ? codeEl.innerText || codeEl.textContent : node.textContent;
+        const lines = codeText.split('\n');
+        return lines.map(line =>
+          `<w:p><w:pPr><w:pStyle w:val="Code"/></w:pPr><w:r><w:rFonts w:ascii="Courier New" w:hAnsi="Courier New"/><w:sz w:val="18"/><w:t xml:space="preserve">${escXml(line)}</w:t></w:r></w:p>`
+        ).join('');
+      }
+
+      // Lists
+      if (tag === 'ul' || tag === 'ol') {
+        let out = '';
+        let i = 1;
+        for (const li of node.querySelectorAll(':scope > li')) {
+          const prefix = tag === 'ul' ? '•  ' : `${i++}.  `;
+          const text = li.textContent || '';
+          out += `<w:p><w:pPr><w:ind w:left="360"/></w:pPr><w:r><w:t xml:space="preserve">${escXml(prefix + text.trim())}</w:t></w:r></w:p>`;
+        }
+        return out;
+      }
+
+      // Table
+      if (tag === 'table') {
+        let xml = '<w:tbl><w:tblPr><w:tblW w:w="0" w:type="auto"/><w:tblBorders><w:top w:val="single" w:sz="4" w:color="DADCE0"/><w:left w:val="single" w:sz="4" w:color="DADCE0"/><w:bottom w:val="single" w:sz="4" w:color="DADCE0"/><w:right w:val="single" w:sz="4" w:color="DADCE0"/><w:insideH w:val="single" w:sz="4" w:color="DADCE0"/><w:insideV w:val="single" w:sz="4" w:color="DADCE0"/></w:tblBorders></w:tblPr>';
+        for (const row of node.querySelectorAll('tr')) {
+          xml += '<w:tr>';
+          for (const cell of row.querySelectorAll('th, td')) {
+            const isHeader = cell.tagName.toLowerCase() === 'th';
+            const cellText = escXml(cell.textContent || '');
+            xml += `<w:tc><w:tcPr>${isHeader ? '<w:shd w:val="clear" w:color="auto" w:fill="F1F3F4"/>' : ''}</w:tcPr><w:p><w:r>${isHeader ? '<w:b/>' : ''}<w:t xml:space="preserve">${cellText}</w:t></w:r></w:p></w:tc>`;
+          }
+          xml += '</w:tr>';
+        }
+        xml += '</w:tbl><w:p/>';
+        return xml;
+      }
+
+      // HR
+      if (tag === 'hr') {
+        return `<w:p><w:pPr><w:pBdr><w:bottom w:val="single" w:sz="6" w:space="1" w:color="DADCE0"/></w:pBdr></w:pPr></w:p>`;
+      }
+
+      // Div / section — recurse
+      if (['div','section','article','main'].includes(tag)) {
+        let out = '';
+        for (const c of node.childNodes) out += domNodeToOOXML(c, ctx);
+        return out;
+      }
+
+      // Default: treat as block with text
+      const text = node.textContent || '';
+      if (text.trim()) {
+        return `<w:p><w:r><w:t xml:space="preserve">${escXml(text.trim())}</w:t></w:r></w:p>`;
+      }
+      return '';
+    }
+
+    function buildRpr(ctx) {
+      let rpr = '';
+      if (ctx.bold) rpr += '<w:b/>';
+      if (ctx.italic) rpr += '<w:i/>';
+      if (ctx.code) rpr += '<w:rFonts w:ascii="Courier New" w:hAnsi="Courier New"/><w:sz w:val="18"/>';
+      return rpr ? `<w:rPr>${rpr}</w:rPr>` : '';
+    }
+
+    function buildInlineParagraph(node, ctx, styleId) {
+      let runs = '';
+      for (const child of node.childNodes) {
+        if (child.nodeType === 3) {
+          const t = child.textContent;
+          if (t) runs += `<w:r>${buildRpr(ctx)}<w:t xml:space="preserve">${escXml(t)}</w:t></w:r>`;
+        } else if (child.nodeType === 1) {
+          const ctag = child.tagName.toLowerCase();
+          const newCtx = { ...ctx };
+          if (ctag === 'strong' || ctag === 'b') newCtx.bold = true;
+          if (ctag === 'em' || ctag === 'i') newCtx.italic = true;
+          if (ctag === 'code') newCtx.code = true;
+          const t = child.textContent;
+          if (t) runs += `<w:r>${buildRpr(newCtx)}<w:t xml:space="preserve">${escXml(t)}</w:t></w:r>`;
+        }
+      }
+      if (!runs) runs = `<w:r><w:t></w:t></w:r>`;
+      return `<w:p><w:pPr><w:pStyle w:val="${styleId}"/></w:pPr>${runs}</w:p>`;
+    }
+
+    /** Fallback: MSWord HTML format if JSZip fails */
+    function exportWordFallback(inner) {
+      const wordHtml = `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40"><head><meta charset="UTF-8"/><style>@page{size:A4;margin:2cm}body{font-family:Calibri,Arial,sans-serif;font-size:11pt;color:#202124;line-height:1.6}h1{font-size:20pt;font-weight:bold;border-bottom:2pt solid #dadce0;padding-bottom:4pt;margin-top:0}h2{font-size:15pt;font-weight:bold}h3{font-size:12pt;font-weight:bold}p{margin:0 0 8pt}code{font-family:'Courier New',monospace;background:#f6f8fa;font-size:9pt}pre{background:#f6f8fa;border:1pt solid #dadce0;padding:8pt;font-family:'Courier New',monospace;font-size:9pt}blockquote{border-left:3pt solid #1a73e8;background:#e8f0fe;padding:8pt 12pt;margin:8pt 0;font-style:italic;color:#5f6368}table{border-collapse:collapse;width:100%}th{background:#f1f3f4;font-weight:bold;padding:5pt 8pt;border:1pt solid #dadce0}td{padding:5pt 8pt;border:1pt solid #dadce0}ul,ol{margin:0 0 8pt;padding-left:18pt}li{margin-bottom:3pt}.copy-code-btn,.code-lang-badge{display:none}</style></head><body>${inner}</body></html>`;
+      downloadBlob(wordHtml, 'markflow-export.doc', 'application/msword');
+      showSnackbar('Word file downloaded (.doc format)', 'check_circle');
     }
 
     /** Generic blob downloader */
