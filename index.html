@@ -13,6 +13,8 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
   <!-- html2pdf removed — PDF now uses reliable print-window approach -->
   <!-- html-docx-js removed — Word export now uses native MSWord HTML format -->
+  <!-- Mermaid.js: Diagram & flowchart rendering -->
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10.6.1/dist/mermaid.min.js"></script>
   <!-- Material Icons -->
   <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet"/>
   <!-- Google Fonts: DM Sans + DM Mono -->
@@ -692,8 +694,124 @@
     @keyframes spin { to { transform: rotate(360deg); } }
 
     /* ===================================================
-       RESPONSIVE
+       MERMAID DIAGRAM CONTAINERS
     =================================================== */
+    .mermaid-wrapper {
+      margin: 1.25em 0;
+      border: 1px solid var(--md-outline);
+      border-radius: var(--radius-md);
+      background: var(--md-surface);
+      box-shadow: var(--md-shadow-1);
+      overflow: hidden;
+    }
+    .mermaid-toolbar {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 14px;
+      background: var(--md-surface-1);
+      border-bottom: 1px solid var(--md-outline);
+    }
+    .mermaid-toolbar__badge {
+      font-family: var(--font-mono);
+      font-size: 0.7rem;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      background: #e3f2fd;
+      color: #1565c0;
+      padding: 2px 10px;
+      border-radius: 100px;
+      border: 1px solid #bbdefb;
+    }
+    .mermaid-toolbar__spacer { flex: 1; }
+    .mermaid-copy-btn {
+      display: inline-flex; align-items: center; gap: 4px;
+      padding: 3px 10px;
+      font-family: var(--font-body);
+      font-size: 0.75rem;
+      font-weight: 500;
+      color: var(--md-secondary);
+      background: var(--md-surface);
+      border: 1px solid var(--md-outline);
+      border-radius: 100px;
+      cursor: pointer;
+      transition: all var(--transition);
+    }
+    .mermaid-copy-btn:hover { border-color: var(--md-primary); color: var(--md-primary); }
+    .mermaid-copy-btn .material-icons { font-size: 13px; }
+    .mermaid-zoom-btn {
+      display: inline-flex; align-items: center; gap: 4px;
+      padding: 3px 10px;
+      font-family: var(--font-body);
+      font-size: 0.75rem;
+      font-weight: 500;
+      color: var(--md-secondary);
+      background: var(--md-surface);
+      border: 1px solid var(--md-outline);
+      border-radius: 100px;
+      cursor: pointer;
+      transition: all var(--transition);
+    }
+    .mermaid-zoom-btn:hover { border-color: var(--md-primary); color: var(--md-primary); }
+    .mermaid-zoom-btn .material-icons { font-size: 13px; }
+    .mermaid-body {
+      padding: 24px;
+      display: flex;
+      justify-content: center;
+      overflow-x: auto;
+      min-height: 80px;
+    }
+    .mermaid-body svg {
+      max-width: 100%;
+      height: auto;
+    }
+    .mermaid-error {
+      padding: 16px 20px;
+      background: #fff8f8;
+      border-top: 1px solid #ffd7d7;
+      color: #c62828;
+      font-family: var(--font-mono);
+      font-size: 0.8rem;
+      line-height: 1.6;
+    }
+    /* Lightbox / zoom overlay */
+    .diagram-lightbox {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.75);
+      z-index: 9999;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 32px;
+      backdrop-filter: blur(4px);
+    }
+    .diagram-lightbox__inner {
+      background: #fff;
+      border-radius: var(--radius-lg);
+      padding: 32px;
+      max-width: 95vw;
+      max-height: 90vh;
+      overflow: auto;
+      box-shadow: 0 24px 60px rgba(0,0,0,0.4);
+      position: relative;
+    }
+    .diagram-lightbox__close {
+      position: absolute;
+      top: 12px; right: 12px;
+      width: 32px; height: 32px;
+      border-radius: 50%;
+      background: var(--md-surface-2);
+      border: none;
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      color: var(--md-secondary);
+      transition: background var(--transition);
+    }
+    .diagram-lightbox__close:hover { background: var(--md-outline); }
+    .diagram-lightbox__close .material-icons { font-size: 18px; }
+    .diagram-lightbox svg { max-width: 80vw; max-height: 80vh; }
     @media (max-width: 640px) {
       .main { padding: 16px; }
       .app-bar { padding: 0 16px; }
@@ -758,6 +876,13 @@
             <div class="toolbar-sep"></div>
             <button class="btn-text" onclick="loadSample()" title="Load sample content"><span class="material-icons" style="font-size:16px">auto_awesome</span> Sample</button>
             <button class="btn-text" onclick="clearEditor()" title="Clear editor"><span class="material-icons" style="font-size:16px">delete_outline</span> Clear</button>
+            <div class="toolbar-sep"></div>
+            <button class="btn-text" onclick="insertDiagram('flowchart')" title="Insert Flowchart"><span class="material-icons" style="font-size:16px">account_tree</span> Flow</button>
+            <button class="btn-text" onclick="insertDiagram('sequence')" title="Insert Sequence Diagram"><span class="material-icons" style="font-size:16px">swap_horiz</span> Seq</button>
+            <button class="btn-text" onclick="insertDiagram('pie')" title="Insert Pie Chart"><span class="material-icons" style="font-size:16px">pie_chart</span> Pie</button>
+            <button class="btn-text" onclick="insertDiagram('gantt')" title="Insert Gantt Chart"><span class="material-icons" style="font-size:16px">view_timeline</span> Gantt</button>
+            <button class="btn-text" onclick="insertDiagram('class')" title="Insert Class Diagram"><span class="material-icons" style="font-size:16px">schema</span> Class</button>
+            <button class="btn-text" onclick="insertDiagram('er')" title="Insert ER Diagram"><span class="material-icons" style="font-size:16px">device_hub</span> ER</button>
           </div>
           <textarea
             class="md-textarea"
@@ -913,12 +1038,27 @@ Type and see the live preview on the right →"
     // Custom renderer — must be created BEFORE setOptions
     const renderer = new marked.Renderer();
 
-    // Override code block rendering to add data-lang + hljs highlighting
-    // In marked v4, renderer.code(code, lang, isEscaped)
+    // DIAGRAM TYPES recognised as mermaid
+    const MERMAID_LANGS = new Set(['mermaid','flowchart','sequencediagram','sequence',
+      'classDiagram','class','erdiagram','er','gantt','pie','gitgraph','git',
+      'mindmap','timeline','xychart','sankey']);
+
+    // Override code block rendering:
+    //   - mermaid blocks → placeholder div (rendered by renderMermaid() after DOM insert)
+    //   - all other blocks → hljs highlighted <pre>
     renderer.code = function(code, lang) {
       const safeCode = String(code || '');
-      const safeLang = String(lang || '').trim().toLowerCase();
+      const rawLang  = String(lang || '').trim();
+      const safeLang = rawLang.toLowerCase().replace(/\s+/g,'');
 
+      // Detect mermaid diagrams
+      if (MERMAID_LANGS.has(safeLang) || safeLang.startsWith('mermaid')) {
+        // Encode source in data attribute so renderMermaid() can pick it up
+        const encoded = encodeURIComponent(safeCode);
+        return `<div class="mermaid-placeholder" data-src="${encoded}" data-lang="${rawLang || 'mermaid'}"></div>`;
+      }
+
+      // Normal code: syntax highlight
       let highlighted;
       if (safeLang && hljs.getLanguage(safeLang)) {
         try {
@@ -929,8 +1069,6 @@ Type and see the live preview on the right →"
       } else {
         highlighted = hljs.highlightAuto(safeCode).value;
       }
-
-      // data-lang drives the badge + copy button injection later
       return `<pre data-lang="${safeLang}"><code class="hljs${safeLang ? ' language-' + safeLang : ''}">${highlighted}</code></pre>`;
     };
 
@@ -961,6 +1099,226 @@ Type and see the live preview on the right →"
         return '<p style="color:red">Parse error: ' + e.message + '</p>';
       }
     }
+    // ─────────────────────────────────────────────────────
+    // 1c. Mermaid initialisation
+    // ─────────────────────────────────────────────────────
+    mermaid.initialize({
+      startOnLoad: false,          // We call render manually
+      theme: 'default',
+      securityLevel: 'loose',
+      fontFamily: 'DM Sans, sans-serif',
+      flowchart:  { curve: 'basis', useMaxWidth: true },
+      sequence:   { useMaxWidth: true },
+      gantt:      { useMaxWidth: true },
+    });
+
+    let _mermaidIdCounter = 0;
+
+    /**
+     * Find all .mermaid-placeholder elements inside a container,
+     * render them with Mermaid, and replace with styled diagram wrappers.
+     */
+    async function renderMermaid(container) {
+      const placeholders = container.querySelectorAll('.mermaid-placeholder');
+      for (const ph of placeholders) {
+        const src  = decodeURIComponent(ph.getAttribute('data-src') || '');
+        const lang = ph.getAttribute('data-lang') || 'mermaid';
+        if (!src.trim()) continue;
+
+        const id = `mermaid-diagram-${++_mermaidIdCounter}`;
+
+        // Build wrapper shell immediately (shows loading state)
+        const wrapper = document.createElement('div');
+        wrapper.className = 'mermaid-wrapper';
+        wrapper.innerHTML = `
+          <div class="mermaid-toolbar">
+            <span class="mermaid-toolbar__badge">${lang}</span>
+            <div class="mermaid-toolbar__spacer"></div>
+            <button class="mermaid-copy-btn" title="Copy source" data-src="">
+              <span class="material-icons">content_copy</span> Copy source
+            </button>
+            <button class="mermaid-zoom-btn" title="Zoom diagram">
+              <span class="material-icons">zoom_out_map</span> Zoom
+            </button>
+          </div>
+          <div class="mermaid-body" id="${id}-body">
+            <div style="color:var(--md-on-surface-v);font-size:.85rem;display:flex;align-items:center;gap:8px;">
+              <div class="spinner"></div> Rendering diagram…
+            </div>
+          </div>`;
+        ph.replaceWith(wrapper);
+
+        // Store source for copy button
+        wrapper.querySelector('.mermaid-copy-btn').setAttribute('data-src', src);
+
+        // Bind copy button
+        wrapper.querySelector('.mermaid-copy-btn').addEventListener('click', function() {
+          navigator.clipboard.writeText(src).then(() => {
+            this.innerHTML = '<span class="material-icons">check</span> Copied!';
+            this.style.color = 'var(--md-success)';
+            setTimeout(() => {
+              this.innerHTML = '<span class="material-icons">content_copy</span> Copy source';
+              this.style.color = '';
+            }, 2000);
+          });
+        });
+
+        // Bind zoom button
+        wrapper.querySelector('.mermaid-zoom-btn').addEventListener('click', function() {
+          const svg = wrapper.querySelector('svg');
+          if (!svg) return;
+          openDiagramLightbox(svg.outerHTML);
+        });
+
+        // Render with Mermaid
+        try {
+          const { svg } = await mermaid.render(id, src);
+          const body = document.getElementById(`${id}-body`);
+          if (body) body.innerHTML = svg;
+        } catch(err) {
+          const body = document.getElementById(`${id}-body`);
+          if (body) {
+            body.innerHTML = '';
+            const errDiv = document.createElement('div');
+            errDiv.className = 'mermaid-error';
+            errDiv.textContent = '⚠ Diagram error: ' + (err.message || err);
+            wrapper.appendChild(errDiv);
+          }
+        }
+      }
+    }
+
+    /** Open the diagram lightbox with the given SVG HTML */
+    function openDiagramLightbox(svgHTML) {
+      const overlay = document.createElement('div');
+      overlay.className = 'diagram-lightbox';
+      overlay.innerHTML = `
+        <div class="diagram-lightbox__inner">
+          <button class="diagram-lightbox__close" title="Close">
+            <span class="material-icons">close</span>
+          </button>
+          ${svgHTML}
+        </div>`;
+      overlay.querySelector('.diagram-lightbox__close').addEventListener('click', () => overlay.remove());
+      overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
+      document.body.appendChild(overlay);
+    }
+
+    // ─────────────────────────────────────────────────────
+    // 1d. Diagram snippet templates for toolbar buttons
+    // ─────────────────────────────────────────────────────
+    const DIAGRAM_SNIPPETS = {
+      flowchart: `\`\`\`mermaid
+flowchart TD
+    A([Start]) --> B{Is it working?}
+    B -- Yes --> C[Great!]
+    B -- No  --> D[Debug it]
+    D --> E[Fix the bug]
+    E --> B
+    C --> F([End])
+\`\`\``,
+      sequence: `\`\`\`mermaid
+sequenceDiagram
+    participant U as User
+    participant C as Client
+    participant S as Server
+    participant DB as Database
+
+    U->>C: Click Login
+    C->>S: POST /auth {credentials}
+    S->>DB: Query user record
+    DB-->>S: Return user data
+    S-->>C: JWT Token
+    C-->>U: Redirect to Dashboard
+\`\`\``,
+      pie: `\`\`\`mermaid
+pie title Browser Market Share 2024
+    "Chrome"  : 65.4
+    "Safari"  : 18.7
+    "Edge"    : 5.1
+    "Firefox" : 3.2
+    "Other"   : 7.6
+\`\`\``,
+      gantt: `\`\`\`mermaid
+gantt
+    title Project Timeline
+    dateFormat  YYYY-MM-DD
+    section Planning
+    Requirements    :done,    req,  2024-01-01, 2024-01-07
+    Design          :done,    des,  2024-01-07, 2024-01-14
+    section Development
+    Backend API     :active,  be,   2024-01-14, 2024-01-28
+    Frontend UI     :         fe,   2024-01-21, 2024-02-04
+    section Testing
+    QA & Bug fixes  :         qa,   2024-02-04, 2024-02-11
+    Deployment      :         dep,  2024-02-11, 2024-02-14
+\`\`\``,
+      class: `\`\`\`mermaid
+classDiagram
+    class Animal {
+        +String name
+        +int age
+        +makeSound() String
+    }
+    class Dog {
+        +String breed
+        +fetch() void
+    }
+    class Cat {
+        +bool isIndoor
+        +purr() void
+    }
+    Animal <|-- Dog
+    Animal <|-- Cat
+\`\`\``,
+      er: `\`\`\`mermaid
+erDiagram
+    USER {
+        int id PK
+        string name
+        string email
+        datetime createdAt
+    }
+    ORDER {
+        int id PK
+        datetime orderDate
+        float total
+        int userId FK
+    }
+    PRODUCT {
+        int id PK
+        string name
+        float price
+        int stock
+    }
+    ORDER_ITEM {
+        int orderId FK
+        int productId FK
+        int quantity
+    }
+    USER ||--o{ ORDER : "places"
+    ORDER ||--|{ ORDER_ITEM : "contains"
+    PRODUCT ||--o{ ORDER_ITEM : "included in"
+\`\`\``
+    };
+
+    function insertDiagram(type) {
+      const snippet = DIAGRAM_SNIPPETS[type] || '';
+      if (!snippet) return;
+      const ta = document.getElementById('md-editor');
+      const pos = ta.selectionEnd;
+      const before = ta.value.substring(0, pos);
+      const after  = ta.value.substring(pos);
+      const prefix = before.length > 0 && !before.endsWith('\n') ? '\n\n' : '\n';
+      ta.value = before + prefix + snippet + '\n' + after;
+      ta.selectionStart = ta.selectionEnd = pos + prefix.length + snippet.length + 1;
+      ta.focus();
+      updatePreview();
+      showSnackbar(`${type.charAt(0).toUpperCase() + type.slice(1)} diagram inserted!`, 'account_tree');
+    }
+
+    // ─────────────────────────────────────────────────────
+    // 2. Mode switching (Upload ↔ Live Editor)
     // ─────────────────────────────────────────────────────
     function switchMode(mode) {
       document.querySelectorAll('.mode-panel').forEach(p => p.classList.remove('active'));
@@ -1029,6 +1387,7 @@ Type and see the live preview on the right →"
       const preview = document.getElementById('upload-preview');
       preview.innerHTML = html;
       injectCopyButtons(preview);
+      renderMermaid(preview);   // render any diagram placeholders
       // Show preview card
       document.getElementById('upload-preview-card').style.display = 'block';
       // Word count
@@ -1066,6 +1425,7 @@ Type and see the live preview on the right →"
       const html = parseMarkdown(markdown);
       preview.innerHTML = html;
       injectCopyButtons(preview);
+      renderMermaid(preview);   // render any diagram placeholders
       updateStats(markdown);
     }
 
@@ -1696,106 +2056,971 @@ ${bodyXml}
     // ─────────────────────────────────────────────────────
     // 9. Sample Markdown content
     // ─────────────────────────────────────────────────────
-    const SAMPLE_MARKDOWN = `# MarkFlow — Sample Document
+    const SAMPLE_MARKDOWN = `# MarkFlow — Complete Markdown Reference
 
-> A comprehensive showcase of Markdown features rendered beautifully.
+> 📖 A **comprehensive showcase** of every Markdown feature — text formatting, code, tables, lists, diagrams, math notation, and more. Use this as your reference guide.
 
-## Introduction
+---
 
-Welcome to **MarkFlow**, an advanced Markdown converter built with [Material Design](https://m3.material.io/). This sample demonstrates all supported elements.
+## Table of Contents
+
+- [Text Formatting](#text-formatting)
+- [Headings](#headings)
+- [Paragraphs & Line Breaks](#paragraphs--line-breaks)
+- [Blockquotes](#blockquotes)
+- [Lists](#lists)
+- [Task Lists](#task-lists)
+- [Code](#code)
+- [Tables](#tables)
+- [Links & Images](#links--images)
+- [Horizontal Rules](#horizontal-rules)
+- [Footnotes & Definitions](#footnotes--definitions)
+- [Diagrams & Flowcharts](#diagrams--flowcharts)
+- [Keyboard & Special Elements](#keyboard--special-elements)
 
 ---
 
 ## Text Formatting
 
-Normal text, **bold text**, *italic text*, ~~strikethrough~~, and \`inline code\`.
+| Style | Markdown | Result |
+|-------|----------|--------|
+| Bold | \`**text**\` | **bold** |
+| Italic | \`*text*\` | *italic* |
+| Bold + Italic | \`***text***\` | ***bold italic*** |
+| Strikethrough | \`~~text~~\` | ~~strikethrough~~ |
+| Inline code | \`\\\`code\\\`\` | \`code\` |
+| Underline (HTML) | \`<u>text</u>\` | <u>underline</u> |
+| Highlight (HTML) | \`<mark>text</mark>\` | <mark>highlight</mark> |
+| Superscript (HTML) | \`X<sup>2</sup>\` | X<sup>2</sup> |
+| Subscript (HTML) | \`H<sub>2</sub>O\` | H<sub>2</sub>O |
 
-You can also write [links](https://example.com) and combine **_bold italic_** text.
+You can **combine** *different* ***styles*** in a ~~single~~ sentence with \`inline code\` and [links](https://example.com).
 
 ---
 
-## Code Blocks
+## Headings
+
+# H1 — Page Title
+## H2 — Major Section
+### H3 — Sub-section
+#### H4 — Sub-sub-section
+##### H5 — Minor heading
+###### H6 — Smallest heading
+
+Alternatively, H1 and H2 can use underline syntax:
+
+Heading Level 1
+===============
+
+Heading Level 2
+---------------
+
+---
+
+## Paragraphs & Line Breaks
+
+This is the first paragraph. It contains multiple sentences. Paragraphs are separated by a blank line.
+
+This is the second paragraph. To force a **line break** within a paragraph,
+end a line with two spaces or a backslash.\\
+This line follows a forced break.
+
+This is the third paragraph with *a lot* of content to demonstrate how long text wraps naturally inside the preview pane without any special treatment needed from the author.
+
+---
+
+## Blockquotes
+
+> This is a simple blockquote.
+
+> **Nested blockquotes** are also supported:
+>
+> > This is a nested blockquote inside the outer one.
+> >
+> > > And this is a third level of nesting.
+
+> ### Blockquote with other elements
+>
+> - Item one inside a blockquote
+> - Item two inside a blockquote
+>
+> *"Any sufficiently advanced technology is indistinguishable from magic."*
+> — Arthur C. Clarke
+
+---
+
+## Lists
+
+### Unordered Lists
+
+- First item
+- Second item
+- Third item
+  - Nested item 3.1
+  - Nested item 3.2
+    - Deeply nested 3.2.1
+    - Deeply nested 3.2.2
+  - Nested item 3.3
+- Fourth item
+
+You can also use \`+\` or \`-\` as bullet markers:
+
++ Alpha
++ Beta
+  + Beta-1
+  + Beta-2
++ Gamma
+
+### Ordered Lists
+
+1. First step
+2. Second step
+3. Third step
+   1. Sub-step 3.1
+   2. Sub-step 3.2
+4. Fourth step
+
+### Mixed Nested Lists
+
+1. **Planning phase**
+   - Define requirements
+   - Identify stakeholders
+   - Set milestones
+2. **Development phase**
+   - Backend API
+     1. Database schema
+     2. REST endpoints
+     3. Authentication
+   - Frontend UI
+3. **Testing phase**
+   - Unit tests
+   - Integration tests
+   - User acceptance testing
+
+---
+
+## Task Lists
+
+- [x] ✅ Set up project repository
+- [x] ✅ Configure Markdown parser (marked.js v4)
+- [x] ✅ Add syntax highlighting (highlight.js)
+- [x] ✅ Build live editor with split-screen preview
+- [x] ✅ Implement file upload with drag & drop
+- [x] ✅ Add copy-code button per code block
+- [x] ✅ HTML export (standalone file)
+- [x] ✅ PDF export (print-window method)
+- [x] ✅ Word export (true .docx via JSZip + OOXML)
+- [x] ✅ Mermaid diagrams & flowcharts
+- [ ] 🔲 Collaborative editing (coming soon)
+- [ ] 🔲 Cloud sync & file history
+- [ ] 🔲 Custom themes support
+- [ ] 🔲 Mobile swipe gestures
+
+---
+
+## Code
+
+### Inline Code
+
+Use \`console.log()\` to print, \`npm install\` to install packages, or \`git commit -m "message"\` to commit changes.
+
+Referencing variables like \`userId\`, \`accessToken\`, or \`API_BASE_URL\` inline is very readable.
 
 ### JavaScript
+
 \`\`\`javascript
-// Fibonacci with memoization
-function fib(n, memo = {}) {
+// ── Fibonacci with memoization ──────────────────────
+function fibonacci(n, memo = new Map()) {
   if (n <= 1) return n;
-  if (memo[n]) return memo[n];
-  memo[n] = fib(n - 1, memo) + fib(n - 2, memo);
-  return memo[n];
+  if (memo.has(n)) return memo.get(n);
+  const result = fibonacci(n - 1, memo) + fibonacci(n - 2, memo);
+  memo.set(n, result);
+  return result;
 }
 
-console.log(fib(40)); // 102334155
+// ── Async / Await + Error handling ──────────────────
+async function fetchUser(id) {
+  try {
+    const res = await fetch(\\\`/api/users/\\\${id}\\\`);
+    if (!res.ok) throw new Error(\\\`HTTP \\\${res.status}\\\`);
+    const data = await res.json();
+    return data;
+  } catch (err) {
+    console.error('Failed to fetch user:', err.message);
+    return null;
+  }
+}
+
+// ── ES6+ features ────────────────────────────────────
+const users = [
+  { id: 1, name: 'Alice', role: 'admin' },
+  { id: 2, name: 'Bob',   role: 'user'  },
+  { id: 3, name: 'Carol', role: 'user'  },
+];
+
+const admins = users
+  .filter(u => u.role === 'admin')
+  .map(({ id, name }) => ({ id, name }));
+
+console.log(admins); // [{ id: 1, name: 'Alice' }]
 \`\`\`
 
 ### Python
-\`\`\`python
-from functools import lru_cache
 
+\`\`\`python
+from __future__ import annotations
+from functools import lru_cache
+from dataclasses import dataclass, field
+from typing import Optional
+import asyncio
+
+# ── Dataclass example ────────────────────────────────
+@dataclass
+class User:
+    id: int
+    name: str
+    email: str
+    roles: list[str] = field(default_factory=list)
+
+    def is_admin(self) -> bool:
+        return "admin" in self.roles
+
+    def __repr__(self) -> str:
+        return f"User(id={self.id}, name={self.name!r})"
+
+# ── Memoized recursion ───────────────────────────────
 @lru_cache(maxsize=None)
 def fibonacci(n: int) -> int:
     if n < 2:
         return n
     return fibonacci(n - 1) + fibonacci(n - 2)
 
-print(fibonacci(50))  # 12586269025
+# ── Async example ────────────────────────────────────
+async def fetch_all(urls: list[str]) -> list[dict]:
+    import aiohttp
+    async with aiohttp.ClientSession() as session:
+        tasks = [session.get(url) for url in urls]
+        responses = await asyncio.gather(*tasks)
+        return [await r.json() for r in responses]
+
+print([fibonacci(n) for n in range(10)])
+# [0, 1, 1, 2, 3, 5, 8, 13, 21, 34]
+\`\`\`
+
+### TypeScript
+
+\`\`\`typescript
+// ── Generic Repository Pattern ───────────────────────
+interface Entity {
+  id: number;
+}
+
+interface Repository<T extends Entity> {
+  findById(id: number): Promise<T | null>;
+  findAll(): Promise<T[]>;
+  save(entity: Omit<T, 'id'>): Promise<T>;
+  delete(id: number): Promise<boolean>;
+}
+
+type UserRole = 'admin' | 'editor' | 'viewer';
+
+interface User extends Entity {
+  name: string;
+  email: string;
+  role: UserRole;
+  createdAt: Date;
+}
+
+class UserRepository implements Repository<User> {
+  private store = new Map<number, User>();
+  private nextId = 1;
+
+  async findById(id: number): Promise<User | null> {
+    return this.store.get(id) ?? null;
+  }
+
+  async findAll(): Promise<User[]> {
+    return [...this.store.values()];
+  }
+
+  async save(data: Omit<User, 'id'>): Promise<User> {
+    const user: User = { id: this.nextId++, ...data };
+    this.store.set(user.id, user);
+    return user;
+  }
+
+  async delete(id: number): Promise<boolean> {
+    return this.store.delete(id);
+  }
+}
+\`\`\`
+
+### Rust
+
+\`\`\`rust
+use std::collections::HashMap;
+
+// ── Ownership & borrowing example ───────────────────
+fn fibonacci(n: u64, memo: &mut HashMap<u64, u64>) -> u64 {
+    if n <= 1 { return n; }
+    if let Some(&val) = memo.get(&n) { return val; }
+    let result = fibonacci(n - 1, memo) + fibonacci(n - 2, memo);
+    memo.insert(n, result);
+    result
+}
+
+// ── Structs & Traits ─────────────────────────────────
+#[derive(Debug, Clone)]
+struct Matrix {
+    rows: usize,
+    cols: usize,
+    data: Vec<Vec<f64>>,
+}
+
+impl Matrix {
+    fn new(rows: usize, cols: usize) -> Self {
+        Matrix { rows, cols, data: vec![vec![0.0; cols]; rows] }
+    }
+
+    fn get(&self, r: usize, c: usize) -> f64 { self.data[r][c] }
+    fn set(&mut self, r: usize, c: usize, val: f64) { self.data[r][c] = val; }
+}
+
+fn main() {
+    let mut memo = HashMap::new();
+    for i in 0..10 {
+        print!("{} ", fibonacci(i, &mut memo));
+    }
+    println!();
+}
+\`\`\`
+
+### SQL
+
+\`\`\`sql
+-- ── Advanced query with CTEs and window functions ───
+WITH monthly_revenue AS (
+    SELECT
+        DATE_TRUNC('month', order_date)  AS month,
+        SUM(total_amount)                AS revenue,
+        COUNT(DISTINCT customer_id)      AS unique_customers
+    FROM orders
+    WHERE status = 'completed'
+      AND order_date >= NOW() - INTERVAL '12 months'
+    GROUP BY 1
+),
+growth AS (
+    SELECT
+        month,
+        revenue,
+        unique_customers,
+        LAG(revenue) OVER (ORDER BY month)            AS prev_revenue,
+        ROUND(
+          100.0 * (revenue - LAG(revenue) OVER (ORDER BY month))
+                / NULLIF(LAG(revenue) OVER (ORDER BY month), 0),
+          2
+        )                                              AS growth_pct
+    FROM monthly_revenue
+)
+SELECT
+    TO_CHAR(month, 'Mon YYYY')  AS period,
+    revenue,
+    unique_customers,
+    COALESCE(growth_pct, 0)    AS growth_pct,
+    CASE
+        WHEN growth_pct > 10 THEN '📈 Strong'
+        WHEN growth_pct > 0  THEN '↗ Growing'
+        WHEN growth_pct = 0  THEN '→ Flat'
+        ELSE '📉 Declining'
+    END                         AS trend
+FROM growth
+ORDER BY month;
+\`\`\`
+
+### Bash / Shell
+
+\`\`\`bash
+#!/usr/bin/env bash
+set -euo pipefail
+
+# ── Deployment script ────────────────────────────────
+APP_NAME="markflow"
+DEPLOY_DIR="/var/www/\${APP_NAME}"
+BACKUP_DIR="/var/backups/\${APP_NAME}"
+TIMESTAMP=\$(date +%Y%m%d_%H%M%S)
+
+log() { echo "[$(date '+%H:%M:%S')] \$*"; }
+
+backup() {
+    log "Creating backup..."
+    mkdir -p "\${BACKUP_DIR}"
+    tar -czf "\${BACKUP_DIR}/backup_\${TIMESTAMP}.tar.gz" "\${DEPLOY_DIR}" 2>/dev/null || true
+    # Keep only last 5 backups
+    ls -t "\${BACKUP_DIR}"/*.tar.gz | tail -n +6 | xargs -r rm
+}
+
+deploy() {
+    log "Deploying \${APP_NAME}..."
+    git pull origin main
+    npm ci --production
+    npm run build
+    pm2 restart "\${APP_NAME}" || pm2 start dist/index.js --name "\${APP_NAME}"
+    log "Deploy complete ✓"
+}
+
+backup && deploy
+\`\`\`
+
+### CSS
+
+\`\`\`css
+/* ── Material Design inspired card component ─────── */
+:root {
+  --primary:      #1a73e8;
+  --surface:      #ffffff;
+  --on-surface:   #202124;
+  --outline:      #dadce0;
+  --shadow-1: 0 1px 2px rgba(60,64,67,.3),
+              0 1px 3px 1px rgba(60,64,67,.15);
+}
+
+.card {
+  background:    var(--surface);
+  border-radius: 16px;
+  border:        1px solid var(--outline);
+  box-shadow:    var(--shadow-1);
+  overflow:      hidden;
+  transition:    box-shadow 200ms cubic-bezier(.2,0,0,1),
+                 transform  200ms cubic-bezier(.2,0,0,1);
+}
+
+.card:hover {
+  box-shadow: 0 4px 8px 3px rgba(60,64,67,.15),
+              0 1px 3px rgba(60,64,67,.3);
+  transform:  translateY(-2px);
+}
+
+@keyframes fade-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0);   }
+}
+
+.card--animated {
+  animation: fade-in 300ms ease forwards;
+}
+\`\`\`
+
+### JSON
+
+\`\`\`json
+{
+  "name": "markflow",
+  "version": "2.0.0",
+  "description": "Advanced Markdown converter with diagrams",
+  "keywords": ["markdown", "mermaid", "converter", "material-design"],
+  "scripts": {
+    "dev":   "vite",
+    "build": "vite build",
+    "test":  "vitest run"
+  },
+  "dependencies": {
+    "marked":   "^4.3.0",
+    "mermaid":  "^10.6.1",
+    "highlight.js": "^11.9.0"
+  },
+  "config": {
+    "maxTokens": 4096,
+    "themes": ["light", "dark", "sepia"],
+    "exportFormats": ["html", "pdf", "docx"]
+  }
+}
+\`\`\`
+
+### YAML
+
+\`\`\`yaml
+# ── CI/CD Pipeline (GitHub Actions) ─────────────────
+name: Deploy MarkFlow
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+env:
+  NODE_VERSION: '20'
+  APP_NAME: markflow
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: \${{ env.NODE_VERSION }}
+          cache: npm
+      - run: npm ci
+      - run: npm test
+
+  deploy:
+    needs: test
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - uses: actions/checkout@v4
+      - run: npm ci && npm run build
+      - name: Deploy to server
+        uses: appleboy/ssh-action@v1
+        with:
+          host: \${{ secrets.HOST }}
+          username: \${{ secrets.USER }}
+          key: \${{ secrets.SSH_KEY }}
+          script: |
+            cd /var/www/markflow
+            git pull && npm ci --prod
+            pm2 restart markflow
+\`\`\`
+
+### HTML
+
+\`\`\`html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta name="description" content="MarkFlow — Advanced Markdown Converter"/>
+  <title>MarkFlow</title>
+  <link rel="stylesheet" href="styles.css"/>
+</head>
+<body>
+  <header class="app-bar" role="banner">
+    <div class="app-bar__logo">
+      <span class="material-icons" aria-hidden="true">article</span>
+      <h1>MarkFlow</h1>
+    </div>
+    <nav aria-label="Main navigation">
+      <button class="tab-btn active" aria-selected="true">Live Editor</button>
+      <button class="tab-btn"        aria-selected="false">File Upload</button>
+    </nav>
+  </header>
+
+  <main class="split-screen" role="main">
+    <section class="editor-pane" aria-label="Markdown input">
+      <textarea id="editor" placeholder="Write Markdown..."></textarea>
+    </section>
+    <section class="preview-pane" aria-label="Rendered preview">
+      <div id="preview"></div>
+    </section>
+  </main>
+
+  <script src="app.js" type="module"><\/script>
+</body>
+</html>
 \`\`\`
 
 ---
 
-## Lists
+## Tables
 
-### Unordered
-- Material Design 3 components
-- Syntax highlighting via Highlight.js
-- Real-time live preview
-  - Nested item one
-  - Nested item two
+### Basic Table
 
-### Ordered
-1. Upload a \`.md\` file **or** use the Live Editor
-2. Preview renders instantly
-3. Export to HTML, PDF, or Word
+| Column A | Column B | Column C |
+|----------|----------|----------|
+| Cell 1   | Cell 2   | Cell 3   |
+| Cell 4   | Cell 5   | Cell 6   |
+
+### Aligned Table
+
+| Left aligned | Center aligned | Right aligned |
+|:-------------|:--------------:|--------------:|
+| Alpha        | Beta           | 1,000         |
+| Gamma        | Delta          | 2,500         |
+| Epsilon      | Zeta           | 10,750        |
+| **Total**    |                | **14,250**    |
+
+### Feature Comparison Table
+
+| Feature | Free | Pro | Enterprise |
+|---------|:----:|:---:|:----------:|
+| Live Editor | ✅ | ✅ | ✅ |
+| File Upload | ✅ | ✅ | ✅ |
+| HTML Export | ✅ | ✅ | ✅ |
+| PDF Export | ✅ | ✅ | ✅ |
+| Word Export | ✅ | ✅ | ✅ |
+| Diagrams | ✅ | ✅ | ✅ |
+| Custom Themes | ❌ | ✅ | ✅ |
+| Cloud Sync | ❌ | ✅ | ✅ |
+| Team Sharing | ❌ | ❌ | ✅ |
+| SSO / SAML | ❌ | ❌ | ✅ |
+| SLA Support | ❌ | ❌ | ✅ |
 
 ---
 
-## Blockquote
+## Links & Images
 
-> "Any application that can be written in JavaScript, will eventually be written in JavaScript."
+### Inline Links
+
+[MarkFlow Documentation](https://example.com/docs)
+[Material Design 3](https://m3.material.io/)
+[Mermaid.js Docs](https://mermaid.js.org/)
+[marked.js](https://marked.js.org/)
+
+### Reference Links
+
+Check the [official guide][guide] or the [API reference][api] for more details.
+
+[guide]: https://example.com/guide  "User Guide"
+[api]:   https://example.com/api    "API Reference"
+
+### Autolinks
+
+<https://example.com>
+<hello@markflow.app>
+
+### Images
+
+![MarkFlow Logo](https://via.placeholder.com/120x40/1a73e8/ffffff?text=MarkFlow "MarkFlow")
+
+[![Build Status](https://via.placeholder.com/120x20/1e8e3e/ffffff?text=passing "Build passing")](https://example.com)
+[![Version](https://via.placeholder.com/80x20/1a73e8/ffffff?text=v2.0.0 "Version 2.0.0")](https://example.com)
+
+---
+
+## Blockquotes
+
+### Simple
+
+> This is a single-line blockquote.
+
+### Multi-line
+
+> This blockquote spans multiple lines.
+> The second line continues the same quote.
+> And so does the third.
+
+### Nested
+
+> Level 1 — Outer blockquote.
 >
-> — Jeff Atwood
+> > Level 2 — Nested blockquote.
+> >
+> > > Level 3 — Deeply nested blockquote.
+
+### With Formatting
+
+> #### 💡 Pro Tip
+>
+> You can put **any** Markdown inside a blockquote, including:
+> - Bullet lists
+> - \`inline code\`
+> - *Italic* and **bold** text
+>
+> This makes blockquotes very versatile for callouts and notes.
 
 ---
 
-## Table
+## Horizontal Rules
 
-| Feature         | Status  | Notes                         |
-|-----------------|---------|-------------------------------|
-| File Upload     | ✅ Done  | Drag & drop supported         |
-| Live Editor     | ✅ Done  | Real-time rendering           |
-| Copy Code       | ✅ Done  | Per-block clipboard button    |
-| HTML Export     | ✅ Done  | Standalone file               |
-| PDF Export      | ✅ Done  | Via html2pdf.js               |
-| Word Export     | ✅ Done  | Via html-docx-js              |
+Three ways to write a horizontal rule:
 
 ---
 
-## Task List
+***
 
-- [x] Configure Marked.js renderer
-- [x] Add syntax highlighting
-- [x] Inject copy-code buttons
-- [ ] Add collaborative editing
-- [ ] Cloud sync support
+___
 
 ---
 
-## Horizontal Rule
+## Diagrams & Flowcharts
+
+### Flowchart — Software Release Process
+
+\`\`\`mermaid
+flowchart LR
+    A([Developer]) -->|git push| B[CI Pipeline]
+    B --> C{Tests pass?}
+    C -- No --> D[Notify developer]
+    D --> A
+    C -- Yes --> E[Build Docker image]
+    E --> F[Push to registry]
+    F --> G{Branch?}
+    G -- main --> H[Deploy to Production 🚀]
+    G -- develop --> I[Deploy to Staging]
+    H --> J([Users])
+    I --> K([QA Team])
+\`\`\`
+
+### Sequence Diagram — OAuth 2.0 Flow
+
+\`\`\`mermaid
+sequenceDiagram
+    autonumber
+    actor U as User
+    participant A as App
+    participant AS as Auth Server
+    participant RS as Resource Server
+
+    U->>A: Click "Login with Google"
+    A->>AS: Authorization request
+    AS->>U: Login & consent page
+    U->>AS: Credentials + consent
+    AS-->>A: Authorization code
+    A->>AS: Exchange code for tokens
+    AS-->>A: Access token + Refresh token
+    A->>RS: API request (Bearer token)
+    RS-->>A: Protected resource
+    A-->>U: Display data
+\`\`\`
+
+### Class Diagram — Design Patterns
+
+\`\`\`mermaid
+classDiagram
+    class Document {
+        +String id
+        +String title
+        +String content
+        +Date createdAt
+        +render() HTML
+        +export(format) Blob
+    }
+    class MarkdownDocument {
+        +String rawMarkdown
+        +parse() AST
+        +highlight() void
+    }
+    class DiagramDocument {
+        +String diagramCode
+        +String type
+        +renderSVG() SVGElement
+    }
+    class Exporter {
+        <<interface>>
+        +export(doc Document) Blob
+    }
+    class HTMLExporter {
+        +export(doc Document) Blob
+    }
+    class PDFExporter {
+        +export(doc Document) Blob
+    }
+    class WordExporter {
+        +export(doc Document) Blob
+    }
+    Document <|-- MarkdownDocument
+    Document <|-- DiagramDocument
+    Exporter <|.. HTMLExporter
+    Exporter <|.. PDFExporter
+    Exporter <|.. WordExporter
+\`\`\`
+
+### Gantt Chart — Product Roadmap
+
+\`\`\`mermaid
+gantt
+    title MarkFlow 2025 Roadmap
+    dateFormat  YYYY-MM-DD
+    excludes    weekends
+
+    section Core
+    Markdown Parser      :done,    p1, 2025-01-01, 2025-01-15
+    Live Editor          :done,    p2, 2025-01-15, 2025-02-01
+    Syntax Highlighting  :done,    p3, 2025-02-01, 2025-02-15
+
+    section Export
+    HTML Export          :done,    e1, 2025-02-15, 2025-03-01
+    PDF Export           :done,    e2, 2025-03-01, 2025-03-15
+    Word Export          :done,    e3, 2025-03-15, 2025-04-01
+
+    section Diagrams
+    Mermaid Integration  :done,    d1, 2025-04-01, 2025-04-20
+    Flowcharts           :done,    d2, 2025-04-20, 2025-05-01
+    All Diagram Types    :active,  d3, 2025-05-01, 2025-05-20
+
+    section Future
+    Cloud Sync           :         f1, 2025-06-01, 2025-07-01
+    Collaboration        :         f2, 2025-07-01, 2025-08-15
+    Mobile App           :         f3, 2025-09-01, 2025-11-01
+\`\`\`
+
+### Pie Chart — Tech Stack Usage
+
+\`\`\`mermaid
+pie title Frontend Tech Stack
+    "JavaScript / TS" : 45
+    "CSS / SCSS"      : 20
+    "HTML"            : 15
+    "Markdown"        : 12
+    "Config files"    : 8
+\`\`\`
+
+### Entity Relationship Diagram
+
+\`\`\`mermaid
+erDiagram
+    WORKSPACE {
+        uuid id PK
+        string name
+        string slug
+        datetime createdAt
+    }
+    USER {
+        uuid id PK
+        string name
+        string email
+        string avatarUrl
+        datetime createdAt
+    }
+    DOCUMENT {
+        uuid id PK
+        string title
+        text content
+        string format
+        uuid authorId FK
+        uuid workspaceId FK
+        datetime updatedAt
+    }
+    EXPORT {
+        uuid id PK
+        uuid documentId FK
+        string format
+        string downloadUrl
+        datetime createdAt
+    }
+    TAG {
+        uuid id PK
+        string name
+        string color
+    }
+    WORKSPACE ||--o{ USER : "has members"
+    WORKSPACE ||--o{ DOCUMENT : "contains"
+    USER ||--o{ DOCUMENT : "authors"
+    DOCUMENT ||--o{ EXPORT : "generates"
+    DOCUMENT }o--o{ TAG : "tagged with"
+\`\`\`
 
 ---
 
-Happy writing! 🎉
+## Keyboard & Special Elements
+
+### Keyboard Shortcuts
+
+Press <kbd>Ctrl</kbd> + <kbd>S</kbd> to save.
+Press <kbd>Ctrl</kbd> + <kbd>Z</kbd> to undo.
+Press <kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>I</kbd> to open DevTools.
+Use <kbd>Tab</kbd> to insert spaces in the editor.
+
+### Definition Lists (HTML)
+
+<dl>
+  <dt>Markdown</dt>
+  <dd>A lightweight markup language for creating formatted text using plain text.</dd>
+
+  <dt>Mermaid</dt>
+  <dd>A JavaScript-based diagramming tool that renders text definitions into diagrams.</dd>
+
+  <dt>OOXML</dt>
+  <dd>Office Open XML — the file format used by Microsoft Word (.docx) documents.</dd>
+</dl>
+
+### Abbreviations
+
+The <abbr title="World Wide Web Consortium">W3C</abbr> sets web standards.
+<abbr title="HyperText Markup Language">HTML</abbr> is the backbone of the web.
+<abbr title="Cascading Style Sheets">CSS</abbr> handles visual presentation.
+
+### Details / Summary (Collapsible)
+
+<details>
+<summary>📦 Click to expand — Installation instructions</summary>
+
+\`\`\`bash
+# Clone the repository
+git clone https://github.com/example/markflow.git
+cd markflow
+
+# Install dependencies
+npm install
+
+# Start dev server
+npm run dev
+
+# Build for production
+npm run build
+\`\`\`
+
+The app will be available at \`http://localhost:5173\`.
+
+</details>
+
+<details>
+<summary>⚙️ Configuration options</summary>
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| \`theme\` | string | \`"light"\` | UI theme: light, dark, sepia |
+| \`fontSize\` | number | \`14\` | Editor font size in px |
+| \`tabSize\` | number | \`2\` | Tab indentation size |
+| \`wordWrap\` | boolean | \`true\` | Wrap long lines |
+| \`autoSave\` | boolean | \`false\` | Auto-save to localStorage |
+
+</details>
+
+---
+
+## Escaping Characters
+
+To display literal Markdown characters, escape them with a backslash:
+
+\\*not italic\\*
+\\**not bold\\**
+\\# not a heading
+\\- not a list item
+\\\` not code \\\`
+
+---
+
+## Emojis
+
+Markdown supports Unicode emoji directly:
+
+🎉 🚀 ✅ ❌ ⚠️ 💡 🔥 📝 🔒 🌍
+😀 😎 🤔 💪 👏 🙌 ❤️ ⭐ 🏆 🎯
+
+---
+
+## Math (inline HTML)
+
+The quadratic formula: <i>x = (−b ± √(b²−4ac)) / 2a</i>
+
+Euler's identity: <i>e<sup>iπ</sup> + 1 = 0</i>
+
+Area of a circle: <i>A = πr<sup>2</sup></i>
+
+---
+
+## Summary
+
+This document demonstrates **every major Markdown feature** supported by MarkFlow:
+
+1. **Typography** — headings (H1–H6), bold, italic, strikethrough, inline code
+2. **Structure** — paragraphs, line breaks, horizontal rules
+3. **Lists** — unordered, ordered, nested, task lists
+4. **Blockquotes** — simple, nested, with formatting
+5. **Code blocks** — 9 languages with syntax highlighting + copy button
+6. **Tables** — basic, aligned, complex comparison tables
+7. **Links** — inline, reference, autolinks
+8. **Images** — with alt text, title, clickable image links
+9. **Diagrams** — flowchart, sequence, class, gantt, pie, ER (Mermaid)
+10. **HTML elements** — kbd, abbr, details/summary, dl/dt/dd, mark, sub, sup
+11. **Escaping** — backslash escapes for literal characters
+12. **Emojis** — native Unicode emoji support
+
+> 🎉 **Happy writing with MarkFlow!**
 `;
 
     function loadSample() {
