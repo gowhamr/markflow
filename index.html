@@ -218,20 +218,41 @@
     }
 
     /* ─── Editor Toolbar ───────────────────────────── */
+    /* Toolbar wrap holds all rows */
+    .editor-toolbar-wrap {
+      display: flex;
+      flex-direction: column;
+      border-bottom: 1px solid var(--c-outline);
+      background: var(--c-surface-1);
+      transition: background var(--dur) var(--ease);
+    }
     .editor-toolbar {
       display: flex; align-items: center; gap: 1px;
-      padding: 4px 8px;
-      background: var(--c-surface-1);
+      padding: 3px 8px;
+      background: transparent;
       border-bottom: 1px solid var(--c-outline);
       overflow-x: auto; overflow-y: hidden;
       scrollbar-width: none; -ms-overflow-style: none;
       flex-shrink: 0;
-      transition: background var(--dur) var(--ease);
-      /* Gradient fade at right edge to hint scrollability */
-      -webkit-mask-image: linear-gradient(to right, black calc(100% - 24px), transparent 100%);
-      mask-image: linear-gradient(to right, black calc(100% - 24px), transparent 100%);
+      flex-wrap: nowrap;
     }
+    .editor-toolbar:last-child { border-bottom: none; }
     .editor-toolbar::-webkit-scrollbar { display: none; }
+    /* Row label */
+    .tb-row-label {
+      font-size: .65rem; font-weight: 700; letter-spacing: .06em;
+      text-transform: uppercase; color: var(--c-text-3);
+      flex-shrink: 0; padding: 0 4px; white-space: nowrap;
+      min-width: 44px;
+      transition: color var(--dur) var(--ease);
+    }
+    /* Diagram row accent */
+    .editor-toolbar--diagrams { background: color-mix(in srgb, var(--c-primary) 4%, transparent); }
+    .editor-toolbar--diagrams .tb-row-label { color: var(--c-primary); opacity: .7; }
+    .tb-btn--diagram { color: var(--c-primary); }
+    .tb-btn--diagram:hover { background: var(--c-primary-lt); }
+    /* Button label text */
+    .tb-label { font-size: .72rem; }
     /* Remove fade when scrolled to end via JS class */
     .editor-toolbar.at-end {
       -webkit-mask-image: none;
@@ -868,23 +889,34 @@
           </div>
 
           <!-- Toolbar -->
-          <div class="editor-toolbar" role="toolbar" aria-label="Formatting">
+          <div class="editor-toolbar-wrap">
+
+          <!-- ROW 1: Text formatting -->
+          <div class="editor-toolbar" role="toolbar" aria-label="Text formatting">
+            <span class="tb-row-label">Format</span>
+            <div class="toolbar-sep"></div>
             <button class="tb-btn" onclick="insertSyntax('**','**')" title="Bold (Ctrl+B)"><span class="material-icons">format_bold</span></button>
             <button class="tb-btn" onclick="insertSyntax('*','*')" title="Italic (Ctrl+I)"><span class="material-icons">format_italic</span></button>
-            <button class="tb-btn" onclick="insertSyntax('`','`')" title="Inline Code"><span class="material-icons">code</span></button>
-            <button class="tb-btn" onclick="insertSyntax('\n```\n','\n```')" title="Code Block"><span class="material-icons">integration_instructions</span></button>
-            <div class="toolbar-sep"></div>
-            <button class="tb-btn" onclick="insertSyntax('## ','')" title="Heading"><span class="material-icons">title</span></button>
-            <button class="tb-btn" onclick="insertSyntax('\n> ','')" title="Blockquote"><span class="material-icons">format_quote</span></button>
-            <button class="tb-btn" onclick="insertSyntax('\n- ','')" title="Bullet List"><span class="material-icons">format_list_bulleted</span></button>
-            <button class="tb-btn" onclick="insertSyntax('\n1. ','')" title="Numbered List"><span class="material-icons">format_list_numbered</span></button>
-            <button class="tb-btn" onclick="insertSyntax('[','](url)')" title="Link"><span class="material-icons">link</span></button>
             <button class="tb-btn" onclick="insertSyntax('~~','~~')" title="Strikethrough"><span class="material-icons">strikethrough_s</span></button>
+            <button class="tb-btn" onclick="insertSyntax('`','`')" title="Inline Code"><span class="material-icons">code</span></button>
+            <button class="tb-btn" onclick="insertSyntax('
+```
+','
+```')" title="Code Block"><span class="material-icons">integration_instructions</span></button>
             <div class="toolbar-sep"></div>
-            <!-- Table picker -->
+            <button class="tb-btn" onclick="insertSyntax('## ','')" title="Heading H2"><span class="material-icons">title</span></button>
+            <button class="tb-btn" onclick="insertSyntax('
+> ','')" title="Blockquote"><span class="material-icons">format_quote</span></button>
+            <button class="tb-btn" onclick="insertSyntax('
+- ','')" title="Bullet List"><span class="material-icons">format_list_bulleted</span></button>
+            <button class="tb-btn" onclick="insertSyntax('
+1. ','')" title="Numbered List"><span class="material-icons">format_list_numbered</span></button>
+            <button class="tb-btn" onclick="insertSyntax('[','](url)')" title="Link"><span class="material-icons">link</span></button>
+            <button class="tb-btn" onclick="insertSyntax('![alt](',')') " title="Image"><span class="material-icons">image</span></button>
+            <div class="toolbar-sep"></div>
             <div class="table-picker-wrap" id="table-picker-wrap">
               <button class="tb-btn" id="table-picker-btn" onclick="toggleTablePicker(event)" title="Insert Table">
-                <span class="material-icons">table_chart</span> Table
+                <span class="material-icons">table_chart</span><span class="tb-label">Table</span>
               </button>
               <div class="table-picker-popup" id="table-picker-popup">
                 <div class="table-picker-label">Insert Table</div>
@@ -898,20 +930,39 @@
               </div>
             </div>
             <div class="toolbar-sep"></div>
-            <button class="tb-btn" onclick="loadSample()" title="Load sample">
-              <span class="material-icons">auto_awesome</span> Sample
+            <button class="tb-btn" onclick="loadSample()" title="Load sample markdown">
+              <span class="material-icons">auto_awesome</span><span class="tb-label">Sample</span>
             </button>
             <button class="tb-btn" onclick="clearEditor()" title="Clear editor">
               <span class="material-icons">delete_outline</span>
             </button>
-            <div class="toolbar-sep"></div>
-            <button class="tb-btn" onclick="insertDiagram('flowchart')" title="Insert Flowchart"><span class="material-icons">account_tree</span> Flow</button>
-            <button class="tb-btn" onclick="insertDiagram('sequence')" title="Insert Sequence Diagram"><span class="material-icons">swap_horiz</span> Seq</button>
-            <button class="tb-btn" onclick="insertDiagram('pie')" title="Insert Pie Chart"><span class="material-icons">pie_chart</span> Pie</button>
-            <button class="tb-btn" onclick="insertDiagram('gantt')" title="Insert Gantt"><span class="material-icons">view_timeline</span> Gantt</button>
-            <button class="tb-btn" onclick="insertDiagram('class')" title="Insert Class Diagram"><span class="material-icons">schema</span> Class</button>
-            <button class="tb-btn" onclick="insertDiagram('er')" title="Insert ER Diagram"><span class="material-icons">device_hub</span> ER</button>
           </div>
+
+          <!-- ROW 2: Diagrams -->
+          <div class="editor-toolbar editor-toolbar--diagrams" role="toolbar" aria-label="Diagrams">
+            <span class="tb-row-label">Diagrams</span>
+            <div class="toolbar-sep"></div>
+            <button class="tb-btn tb-btn--diagram" onclick="insertDiagram('flowchart')" title="Insert Flowchart">
+              <span class="material-icons">account_tree</span><span class="tb-label">Flowchart</span>
+            </button>
+            <button class="tb-btn tb-btn--diagram" onclick="insertDiagram('sequence')" title="Insert Sequence Diagram">
+              <span class="material-icons">swap_horiz</span><span class="tb-label">Sequence</span>
+            </button>
+            <button class="tb-btn tb-btn--diagram" onclick="insertDiagram('pie')" title="Insert Pie Chart">
+              <span class="material-icons">pie_chart</span><span class="tb-label">Pie</span>
+            </button>
+            <button class="tb-btn tb-btn--diagram" onclick="insertDiagram('gantt')" title="Insert Gantt Chart">
+              <span class="material-icons">view_timeline</span><span class="tb-label">Gantt</span>
+            </button>
+            <button class="tb-btn tb-btn--diagram" onclick="insertDiagram('class')" title="Insert Class Diagram">
+              <span class="material-icons">schema</span><span class="tb-label">Class</span>
+            </button>
+            <button class="tb-btn tb-btn--diagram" onclick="insertDiagram('er')" title="Insert ER Diagram">
+              <span class="material-icons">device_hub</span><span class="tb-label">ER</span>
+            </button>
+          </div>
+
+        </div>
 
           <textarea
             class="md-textarea"
@@ -1516,13 +1567,13 @@
 
     // ── 14. Diagram snippets ──────────────────────
     const DIAGRAM_SNIPPETS = {
-      flowchart: '\`\`\`mermaid\nflowchart TD\n    A([Start]) --> B{Is it working?}\n    B -- Yes --> C[Ship it! 🚀]\n    B -- No  --> D[Debug]\n    D --> E[Fix the bug]\n    E --> B\n    C --> F([Done])\n\`\`\`',
-      sequence:  '\`\`\`mermaid\nsequenceDiagram\n    participant U as User\n    participant S as Server\n    participant DB as Database\n    U->>S: POST /login\n    S->>DB: Verify credentials\n    DB-->>S: User record\n    S-->>U: JWT Token ✓\n\`\`\`',
-      pie:       '\`\`\`mermaid\npie title Export Format Usage\n    "HTML"  : 42\n    "PDF"   : 35\n    "Word"  : 23\n\`\`\`',
-      gantt:     '\`\`\`mermaid\ngantt\n    title Project Timeline\n    dateFormat  YYYY-MM-DD\n    section Planning\n    Requirements  :done, req, 2024-01-01, 2024-01-07\n    Design        :done, des, 2024-01-07, 2024-01-14\n    section Development\n    Backend API   :active, be, 2024-01-14, 2024-01-28\n    Frontend UI   :        fe, 2024-01-21, 2024-02-04\n\`\`\`',
-      class:     '\`\`\`mermaid\nclassDiagram\n    class Animal {\n        +String name\n        +makeSound() String\n    }\n    class Dog { +fetch() void }\n    class Cat { +purr() void }\n    Animal <|-- Dog\n    Animal <|-- Cat\n\`\`\`',
-      er:        '\`\`\`mermaid\nerDiagram\n    USER { int id PK\n        string name\n        string email }\n    ORDER { int id PK\n        int userId FK\n        float total }\n    USER ||--o{ ORDER : "places"\n\`\`\`'
-    };
+      flowchart: "```mermaid\nflowchart TD\n    A([Start]) --> B{Is it working?}\n    B -- Yes --> C[Ship it! \uD83D\uDE80]\n    B -- No  --> D[Debug]\n    D --> E[Fix the bug]\n    E --> B\n    C --> F([Done])\n```",
+      sequence:  "```mermaid\nsequenceDiagram\n    participant U as User\n    participant S as Server\n    participant DB as Database\n    U->>S: POST /login\n    S->>DB: Verify credentials\n    DB-->>S: User record\n    S-->>U: JWT Token \u2713\n```",
+      pie:       "```mermaid\npie title Export Format Usage\n    \"HTML\"  : 42\n    \"PDF\"   : 35\n    \"Word\"  : 23\n```",
+      gantt:     "```mermaid\ngantt\n    title Project Timeline\n    dateFormat  YYYY-MM-DD\n    section Planning\n    Requirements  :done, req, 2024-01-01, 2024-01-07\n    Design        :done, des, 2024-01-07, 2024-01-14\n    section Development\n    Backend API   :active, be, 2024-01-14, 2024-01-28\n    Frontend UI   :        fe, 2024-01-21, 2024-02-04\n```",
+      class:     "```mermaid\nclassDiagram\n    class Animal {\n        +String name\n        +makeSound() String\n    }\n    class Dog { +fetch() void }\n    class Cat { +purr() void }\n    Animal <|-- Dog\n    Animal <|-- Cat\n```",
+      er:        "```mermaid\nerDiagram\n    USER {\n        int id PK\n        string name\n        string email\n    }\n    ORDER {\n        int id PK\n        int userId FK\n        float total\n    }\n    USER ||--o{ ORDER : \"places\"\n```"
+    }
     function insertDiagram(type) {
       const snippet = DIAGRAM_SNIPPETS[type]; if (!snippet) return;
       const ta = document.getElementById('md-editor');
