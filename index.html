@@ -219,16 +219,24 @@
 
     /* ─── Editor Toolbar ───────────────────────────── */
     .editor-toolbar {
-      display: flex; align-items: center; gap: 2px;
-      padding: 5px 10px;
+      display: flex; align-items: center; gap: 1px;
+      padding: 4px 8px;
       background: var(--c-surface-1);
       border-bottom: 1px solid var(--c-outline);
-      overflow-x: auto; overflow-y: visible;
+      overflow-x: auto; overflow-y: hidden;
       scrollbar-width: none; -ms-overflow-style: none;
       flex-shrink: 0;
       transition: background var(--dur) var(--ease);
+      /* Gradient fade at right edge to hint scrollability */
+      -webkit-mask-image: linear-gradient(to right, black calc(100% - 24px), transparent 100%);
+      mask-image: linear-gradient(to right, black calc(100% - 24px), transparent 100%);
     }
     .editor-toolbar::-webkit-scrollbar { display: none; }
+    /* Remove fade when scrolled to end via JS class */
+    .editor-toolbar.at-end {
+      -webkit-mask-image: none;
+      mask-image: none;
+    }
     .toolbar-sep {
       width: 1px; height: 18px; flex-shrink: 0;
       background: var(--c-outline); margin: 0 4px;
@@ -2939,11 +2947,10 @@ ${bodyXml}
       let runs = '';
       for (const child of node.childNodes) {
         if (child.nodeType === 3) {
-          const t = child.textContent;
-          if (t) runs += `<w:r>${buildRpr(ctx)}<w:t xml:space="preserve">${escXml(t)}</w:t></w:r>`;
+          const txt = child.textContent;
+          if (txt) runs += `<w:r>${buildRpr(ctx)}<w:t xml:space="preserve">${escXml(txt)}</w:t></w:r>`;
         } else if (child.nodeType === 1) {
           const ctag = child.tagName.toLowerCase();
-          // Skip UI elements that sneak through
           if (['button','svg','script','style'].includes(ctag)) continue;
           if (child.classList && (
             child.classList.contains('copy-code-btn') ||
@@ -2952,22 +2959,25 @@ ${bodyXml}
           )) continue;
           const newCtx = { ...ctx };
           if (ctag === 'strong' || ctag === 'b') newCtx.bold = true;
-          if (ctag === 'em' || ctag === 'i')     newCtx.italic = true;
+          if (ctag === 'em'     || ctag === 'i') newCtx.italic = true;
           if (ctag === 'code')                   newCtx.code = true;
           if (ctag === 'a') {
-            // Render link text with underline
-            const t = child.textContent;
-            if (t) runs += `<w:r><w:rPr>${buildRpr(newCtx).replace('<w:rPr>','').replace('</w:rPr>','')}<w:color w:val="1A73E8"/><w:u w:val="single"/></w:rPr><w:t xml:space="preserve">${escXml(t)}</w:t></w:r>`;
+            const linkText = child.textContent;
+            if (linkText) {
+              const baseRpr = buildRpr(newCtx);
+              const inner   = baseRpr ? baseRpr.replace(/^<w:rPr>|<\/w:rPr>$/g, '') : '';
+              runs += `<w:r><w:rPr>${inner}<w:color w:val="1A73E8"/><w:u w:val="single"/></w:rPr><w:t xml:space="preserve">${escXml(linkText)}</w:t></w:r>`;
+            }
             continue;
           }
-          // Inline elements that may contain mixed content — recurse
           if (['span','kbd','abbr','mark','sub','sup','del','ins','s','u','cite','label'].includes(ctag)) {
             runs += collectInlineRuns(child, newCtx);
             continue;
           }
-          // Block-level elements inside inline context — just grab text
-          const t = child.textContent;
-          if (t && t.trim()) runs += `<w:r>${buildRpr(newCtx)}<w:t xml:space="preserve">${escXml(t.trim())}</w:t></w:r>`;
+          const fallbackTxt = child.textContent;
+          if (fallbackTxt && fallbackTxt.trim()) {
+            runs += `<w:r>${buildRpr(newCtx)}<w:t xml:space="preserve">${escXml(fallbackTxt.trim())}</w:t></w:r>`;
+          }
         }
       }
       return runs;
