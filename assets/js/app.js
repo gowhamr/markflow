@@ -201,35 +201,27 @@ function exportHTML(source) {
 async function exportPDF(source) {
   const content = getCleanPreviewEl(source);
   if (!content || !content.innerHTML.trim()) { showSnackbar('Nothing to export.', 'warning'); return; }
-  
-  showSnackbar('Preparing PDF engine...', 'sync');
-  document.body.classList.add('export-mode');
 
-  // 1. Create Isolation Master Container
+  showSnackbar('Preparing PDF...', 'sync');
+
+  const originalTheme = document.documentElement.getAttribute('data-theme');
+  document.documentElement.setAttribute('data-theme', 'light');
+
   const master = document.createElement('div');
-  master.className = 'export-mode pdf-export-master';
-  // Fixed width ensures consistent layout capture
-  master.style.cssText = 'position: absolute; top: 0; left: 0; width: 850px; z-index: -9999; background: white; padding: 40px;';
-  
-  const container = document.createElement('div');
-  container.className = 'pdf-print-container';
-  container.innerHTML = content.innerHTML;
-  master.appendChild(container);
+  master.className = 'export-mode';
+  master.style.cssText = 'position:fixed;top:-99999px;left:0;width:850px;background:#fff;padding:40px;box-sizing:border-box;visibility:hidden;';
+  master.innerHTML = content.innerHTML;
   document.body.appendChild(master);
 
   try {
-    // 2. Render Stabilization
     await document.fonts.ready;
     const images = Array.from(master.querySelectorAll('img'));
-    await Promise.all(images.map(img => {
-      if (img.complete) return Promise.resolve();
-      return new Promise(r => { img.onload = r; img.onerror = r; });
-    }));
-    
-    // Multiple frames and timeout to ensure Mermaid/Highlight.js layouts are stable
+    await Promise.all(images.map(img =>
+      img.complete ? Promise.resolve() : new Promise(r => { img.onload = r; img.onerror = r; })
+    ));
     await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
-    
-    // Explicitly wait for Mermaid spinners to disappear
+
+    // Ensure Mermaid diagrams are stabilized
     const waitForMermaid = async () => {
       const maxWait = 10; // 5 seconds max
       let count = 0;
@@ -239,81 +231,93 @@ async function exportPDF(source) {
       }
     };
     await waitForMermaid();
-    await new Promise(r => setTimeout(r, 300));
+    await new Promise(r => setTimeout(r, 400));
 
-    const totalHeight = master.scrollHeight;
-    const width = master.scrollWidth;
-    
-    // 3. Dynamic DPI Scaling
-    let scale = 2;
-    if (totalHeight > 10000) scale = 1.6;
-    if (totalHeight > 20000) scale = 1.2;
-    
-    // Browser Canvas Limit: ~16k x 16k or 268M total pixels
-    const MAX_PIXELS = 250000000; 
-    while ((width * totalHeight * scale * scale) > MAX_PIXELS && scale > 0.8) {
-      scale -= 0.1;
-    }
+    const { jsPDF } = window.jspdf;
+    const pdf = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait', compress: true });
+    const pdfWidth = pdf.internal.pageSize.getWidth();
+    const pdfHeight = pdf.internal.pageSize.getHeight();
+    const margin = 12;
+    const usableWidth = pdfWidth - margin * 2;
+    const usableHeight = pdfHeight - margin * 2;
 
-    // 4. Section Chunking (To prevent single giant canvas memory overflow)
-    const MAX_CHUNK_HEIGHT = 8000; 
+    // Chunk children to avoid canvas size limits
+    const MAX_CHUNK_PX = 7000;
     const chunks = [];
     let currentChunk = document.createElement('div');
-    currentChunk.className = 'pdf-print-container';
-    let currentHeight = 0;
+    currentChunk.className = 'export-mode';
+    currentChunk.style.cssText = 'width:770px;background:#fff;';
+    let currentH = 0;
 
-    Array.from(container.children).forEach(child => {
-      const h = child.offsetHeight || 100;
-      if (currentHeight + h > MAX_CHUNK_HEIGHT && currentChunk.children.length > 0) {
+    for (const child of Array.from(master.children)) {
+      const h = child.getBoundingClientRect().height || 80;
+      if (currentH + h > MAX_CHUNK_PX && currentChunk.children.length > 0) {
         chunks.push(currentChunk);
         currentChunk = document.createElement('div');
-        currentChunk.className = 'pdf-print-container';
-        currentHeight = 0;
+        currentChunk.className = 'export-mode';
+        currentChunk.style.cssText = 'width:770px;background:#fff;';
+        currentH = 0;
       }
       currentChunk.appendChild(child.cloneNode(true));
-      currentHeight += h;
-    });
+      currentH += h;
+    }
     if (currentChunk.children.length > 0) chunks.push(currentChunk);
 
-    const filename = getExportFilename('pdf');
-    showSnackbar(`Exporting ${chunks.length} sections...`, 'sync');
+    showSnackbar(`Rendering ${chunks.length} page(s)...`, 'sync');
 
-    // 5. Sequential Production Rendering
-    const opt = {
-      margin: 12,
-      filename: filename,
-      image: { type: 'jpeg', quality: 0.98 },
-      html2canvas: { 
-        scale: scale, 
-        useCORS: true, 
-        letterRendering: true,
+    // Render each chunk off-screen
+    const renderArea = document.createElement('div');
+    renderArea.className = 'export-mode';
+    renderArea.style.cssText = 'position:fixed;top:-99999px;left:0;background:#fff;visibility:hidden;';
+    document.body.appendChild(renderArea);
+
+    for (let i = 0; i < chunks.length; i++) {
+      renderArea.innerHTML = '';
+      renderArea.appendChild(chunks[i]);
+      await new Promise(r => requestAnimationFrame(r));
+
+      const canvas = await html2canvas(renderArea, {
+        scale: 2,
+        useCORS: true,
+        backgroundColor: '#ffffff',
         logging: false,
-        scrollY: 0, 
-        scrollX: 0
-      },
-      jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait', compress: true },
-      pagebreak: { mode: ['avoid-all', 'css', 'legacy'] }
-    };
-
-    // Use html2pdf worker to chain the sections into a single PDF
-    let worker = html2pdf().set(opt).from(chunks[0]).toPdf();
-
-    for (let i = 1; i < chunks.length; i++) {
-      worker = worker.get('pdf').then(pdf => {
-        pdf.addPage();
-        return worker.from(chunks[i]).toContainer().toCanvas().toPdf();
+        scrollX: 0,
+        scrollY: 0
       });
+
+      const imgData = canvas.toDataURL('image/jpeg', 0.97);
+      const imgHeightMm = (canvas.height / canvas.width) * usableWidth;
+
+      if (i > 0) pdf.addPage();
+
+      // Handle tall chunks spanning multiple PDF pages
+      let remaining = imgHeightMm;
+      let srcY = 0;
+      let isFirst = true;
+      while (remaining > 0) {
+        if (!isFirst) pdf.addPage();
+        const sliceH = Math.min(remaining, usableHeight);
+        const srcYRatio = srcY / imgHeightMm;
+        const sliceRatio = sliceH / imgHeightMm;
+        pdf.addImage(imgData, 'JPEG', margin, margin, usableWidth, imgHeightMm,
+          undefined, 'FAST', 0,
+          -(srcYRatio * (canvas.height / canvas.width) * usableWidth));
+        srcY += sliceH;
+        remaining -= sliceH;
+        isFirst = false;
+      }
     }
 
-    await worker.save();
-    showSnackbar('PDF Exported Successfully!', 'check_circle');
+    document.body.removeChild(renderArea);
+    pdf.save(getExportFilename('pdf'));
+    showSnackbar('PDF exported successfully!', 'check_circle');
 
   } catch (err) {
     console.error('PDF Export Error:', err);
-    showSnackbar('PDF export failed. Try a shorter document.', 'error');
+    showSnackbar('PDF export failed: ' + err.message, 'error');
   } finally {
     if (document.body.contains(master)) document.body.removeChild(master);
-    document.body.classList.remove('export-mode');
+    document.documentElement.setAttribute('data-theme', originalTheme);
   }
 }
 

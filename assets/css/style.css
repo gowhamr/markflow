@@ -1085,6 +1085,15 @@
 .export-mode {
   background: #ffffff !important;
   color: #111111 !important;
+  /* Hard-reset all theme tokens to Light Mode equivalents */
+  --c-primary:       #1a73e8 !important;
+  --c-surface:       #ffffff !important;
+  --c-surface-1:     #f8f9fa !important;
+  --c-surface-2:     #f1f3f4 !important;
+  --c-surface-3:     #e8eaed !important;
+  --c-text:          #202124 !important;
+  --c-text-2:        #5f6368 !important;
+  --c-preview-bg:    #ffffff !important;
 }
 
 .export-mode, .export-mode * {
