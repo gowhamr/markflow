@@ -222,7 +222,7 @@ async function exportPDF(source) {
 
   const master = document.createElement('div');
   master.className = 'export-mode';
-  master.style.cssText = 'position:fixed;top:-99999px;left:0;width:850px;background:#fff;padding:40px;box-sizing:border-box;visibility:hidden;';
+  master.style.cssText = 'position:fixed;top:0;left:-9999px;width:850px;background:#fff;padding:40px;box-sizing:border-box;opacity:0.01;pointer-events:none;';
   master.innerHTML = content.innerHTML;
   document.body.appendChild(master);
 
@@ -284,12 +284,14 @@ async function exportPDF(source) {
     // Render each chunk off-screen
     const renderArea = document.createElement('div');
     renderArea.className = 'export-mode';
-    renderArea.style.cssText = 'position:fixed;top:-99999px;left:0;width:850px;background:#fff;visibility:hidden;';
+    renderArea.style.cssText = 'position:fixed;top:0;left:-9999px;width:850px;background:#fff;opacity:0.01;pointer-events:none;';
     document.body.appendChild(renderArea);
 
     for (let i = 0; i < chunks.length; i++) {
       renderArea.innerHTML = '';
       renderArea.appendChild(chunks[i]);
+      // Extra time for layout and rendering stabilization
+      await new Promise(r => setTimeout(r, 150));
       await new Promise(r => requestAnimationFrame(r));
 
       const canvas = await html2canvas(renderArea, {
@@ -298,7 +300,9 @@ async function exportPDF(source) {
         backgroundColor: '#ffffff',
         logging: false,
         scrollX: 0,
-        scrollY: 0
+        scrollY: 0,
+        width: 850,
+        windowWidth: 850 // Force window width for media queries and layout
       });
 
       const imgData = canvas.toDataURL('image/jpeg', 0.97);
