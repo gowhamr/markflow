@@ -11,11 +11,24 @@ function applyTheme(dark) {
   document.getElementById('hljs-light').disabled = dark;
   document.getElementById('hljs-dark').disabled  = !dark;
   localStorage.setItem('em-theme', dark ? 'dark' : 'light');
+  
   mermaid.initialize({ startOnLoad: false, theme: dark ? 'dark' : 'default',
     securityLevel: 'loose', fontFamily: 'DM Sans, sans-serif',
     flowchart: { curve: 'basis', useMaxWidth: true },
     sequence: { useMaxWidth: true }, gantt: { useMaxWidth: true }
   });
+
+  // Re-render diagrams if content exists
+  const editorMarkdown = document.getElementById('md-editor').value;
+  if (editorMarkdown) updatePreview();
+
+  const uploadPreview = document.getElementById('upload-preview');
+  if (uploadPreview.innerHTML.trim()) {
+    // If we have an uploaded file, we might need to re-render its mermaid
+    // Since we don't store the raw markdown for upload globally in a simple way 
+    // besides the UI, we can just trigger a re-parse if we had a way.
+    // For now, let's at least ensure the editor preview is updated.
+  }
 }
 
 function toggleTheme() {
@@ -214,6 +227,9 @@ async function exportPDF(source) {
   document.body.appendChild(master);
 
   try {
+    // Re-render Mermaid diagrams in the master container for isolation
+    if (window.renderMermaid) await renderMermaid(master);
+    
     await document.fonts.ready;
     const images = Array.from(master.querySelectorAll('img'));
     await Promise.all(images.map(img =>
@@ -246,7 +262,7 @@ async function exportPDF(source) {
     const chunks = [];
     let currentChunk = document.createElement('div');
     currentChunk.className = 'export-mode';
-    currentChunk.style.cssText = 'width:770px;background:#fff;';
+    currentChunk.style.cssText = 'width:850px;background:#fff;padding:40px;box-sizing:border-box;';
     let currentH = 0;
 
     for (const child of Array.from(master.children)) {
@@ -255,7 +271,7 @@ async function exportPDF(source) {
         chunks.push(currentChunk);
         currentChunk = document.createElement('div');
         currentChunk.className = 'export-mode';
-        currentChunk.style.cssText = 'width:770px;background:#fff;';
+        currentChunk.style.cssText = 'width:850px;background:#fff;padding:40px;box-sizing:border-box;';
         currentH = 0;
       }
       currentChunk.appendChild(child.cloneNode(true));
@@ -268,7 +284,7 @@ async function exportPDF(source) {
     // Render each chunk off-screen
     const renderArea = document.createElement('div');
     renderArea.className = 'export-mode';
-    renderArea.style.cssText = 'position:fixed;top:-99999px;left:0;background:#fff;visibility:hidden;';
+    renderArea.style.cssText = 'position:fixed;top:-99999px;left:0;width:850px;background:#fff;visibility:hidden;';
     document.body.appendChild(renderArea);
 
     for (let i = 0; i < chunks.length; i++) {
@@ -293,18 +309,17 @@ async function exportPDF(source) {
       // Handle tall chunks spanning multiple PDF pages
       let remaining = imgHeightMm;
       let srcY = 0;
-      let isFirst = true;
+      let isFirstPageOfChunk = true;
+      
       while (remaining > 0) {
-        if (!isFirst) pdf.addPage();
-        const sliceH = Math.min(remaining, usableHeight);
-        const srcYRatio = srcY / imgHeightMm;
-        const sliceRatio = sliceH / imgHeightMm;
-        pdf.addImage(imgData, 'JPEG', margin, margin, usableWidth, imgHeightMm,
-          undefined, 'FAST', 0,
-          -(srcYRatio * (canvas.height / canvas.width) * usableWidth));
-        srcY += sliceH;
-        remaining -= sliceH;
-        isFirst = false;
+        if (!isFirstPageOfChunk) pdf.addPage();
+        
+        // We shift the image UP by srcY, so the correct slice starts at 'margin'
+        pdf.addImage(imgData, 'JPEG', margin, margin - srcY, usableWidth, imgHeightMm, undefined, 'FAST');
+        
+        srcY += usableHeight;
+        remaining -= usableHeight;
+        isFirstPageOfChunk = false;
       }
     }
 

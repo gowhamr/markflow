@@ -29,7 +29,20 @@ marked.setOptions({ renderer, gfm: true, breaks: true, pedantic: false, sanitize
 
 function parseMarkdown(md) {
   try {
-    const r = marked.parse(md);
+    // Basic KaTeX integration (inline and block)
+    let processedMd = md
+      // Block math: $$ ... $$
+      .replace(/\$\$\s*([\s\S]*?)\s*\$\$/g, (match, formula) => {
+        try { return `<div class="katex-block">${katex.renderToString(formula, { displayMode: true, throwOnError: false })}</div>`; }
+        catch(e) { return match; }
+      })
+      // Inline math: $ ... $ (avoiding matches within words or escaped $)
+      .replace(/(^|[^\\])\$([^\$\n]+?)\$/g, (match, prefix, formula) => {
+        try { return prefix + katex.renderToString(formula, { displayMode: false, throwOnError: false }); }
+        catch(e) { return match; }
+      });
+
+    const r = marked.parse(processedMd);
     return typeof r === 'string' ? r : '';
   } catch(e) { return `<p style="color:var(--c-error)">Parse error: ${e.message}</p>`; }
 }

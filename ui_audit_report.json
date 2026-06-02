@@ -1,0 +1,55 @@
+{
+  "auditMetadata": {
+    "platformName": "Markflow",
+    "auditDate": "2026-06-02T14:30:00Z",
+    "auditor": "Gemini CLI (KV Platform QA Skill)",
+    "version": "1.4.0",
+    "overallTrustScore": 85
+  },
+  "scores": {
+    "performance": 95,
+    "ux": 88,
+    "accessibility": 82,
+    "trust": 75,
+    "designSystem": 85
+  },
+  "issues": [
+    {
+      "id": "TRUST-001",
+      "severity": "P0",
+      "category": "Trust",
+      "title": "Dead UI in Footer",
+      "description": "Social icons (Twitter, Email) and secondary links (Privacy, Changelog) are javascript:void(0) but styled as interactive links.",
+      "impact": "Users feel the platform is incomplete or broken, reducing trust.",
+      "recommendation": "Link to active accounts or remove until implemented."
+    },
+    {
+      "id": "A11Y-001",
+      "severity": "P1",
+      "category": "Accessibility",
+      "title": "Non-semantic interactive elements",
+      "description": "Footer links for 'Editor', 'Upload', and 'Export PDF' use <a> tags with javascript:void(0) instead of <button>.",
+      "impact": "Screen readers may not correctly identify these as action triggers.",
+      "recommendation": "Convert to <button> elements with appropriate styling."
+    },
+    {
+      "id": "DESIGN-001",
+      "severity": "P2",
+      "category": "Design System",
+      "title": "Glassmorphism Inconsistency",
+      "description": "The platform uses flat surfaces instead of the standard KaruviLab glassmorphism (backdrop-blur, semi-transparent overlays).",
+      "impact": "Inconsistent brand identity with the broader KV ecosystem.",
+      "recommendation": "Apply backdrop-filter: blur(8px) and semi-transparent background-colors to the app-bar and footer."
+    },
+    {
+      "id": "A11Y-002",
+      "severity": "P2",
+      "category": "Accessibility",
+      "title": "Aria redundancy in Toolbar",
+      "description": "Toolbar buttons have both 'title' and 'aria-label', which can lead to double-announcement in some screen readers.",
+      "impact": "Sub-optimal screen reader experience.",
+      "recommendation": "Keep aria-label for actions and ensure title is only used for visual tooltips if absolutely necessary."
+    }
+  ],
+  "summary": "Markflow is a highly performant and functional tool. Accessibility and design system alignment are strong but need refinement. Trust is slightly impacted by 'Dead UI' elements in the footer which should be addressed immediately."
+}

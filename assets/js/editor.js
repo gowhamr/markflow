@@ -23,6 +23,7 @@ const SAMPLE_MARKDOWN = `# MarkFlow — Complete Markdown Reference
 - [Horizontal Rules](#horizontal-rules)
 - [Footnotes & Definitions](#footnotes--definitions)
 - [Diagrams & Flowcharts](#diagrams--flowcharts)
+- [Math Notation](#math-notation)
 - [Keyboard & Special Elements](#keyboard--special-elements)
 
 ---
@@ -129,6 +130,20 @@ flowchart TD
 
 ---
 
+## Math Notation
+
+MarkFlow supports LaTeX math notation via KaTeX.
+
+**Inline Math:** The Pythagorean theorem is $a^2 + b^2 = c^2$.
+
+**Block Math:**
+
+$$
+e^{i\pi} + 1 = 0
+$$
+
+---
+
 ## Escaping Characters
 
 \\*not italic\\*
@@ -169,7 +184,17 @@ function updatePreview() {
 
 function updateStats(md) {
   const lines = md ? md.split('\n').length : 0;
-  const words = md.trim() ? md.trim().split(/\s+/).filter(Boolean).length : 0;
+  
+  // Improved word count: strip markdown syntax
+  const cleanMd = md
+    .replace(/^#+\s+/gm, '') // headings
+    .replace(/^[*-+]\s+/gm, '') // lists
+    .replace(/^\d+\.\s+/gm, '') // numbered lists
+    .replace(/\[([^\]]+)\]\([^\)]+\)/g, '$1') // links
+    .replace(/(\*\*|__|~~|`)/g, '') // bold, italic, strikethrough, code
+    .replace(/^\s*[-*_]{3,}\s*$/gm, ''); // horizontal rules
+    
+  const words = cleanMd.trim() ? cleanMd.trim().split(/\s+/).filter(Boolean).length : 0;
   const chars = md.length;
   const readMin = Math.max(1, Math.ceil(words / 200));
   document.getElementById('stat-lines').textContent = lines.toLocaleString();
@@ -345,13 +370,17 @@ function setupScrollSync() {
   const editor  = document.getElementById('md-editor');
   const preview = document.getElementById('editor-preview');
   let _syncing = false;
-  editor.addEventListener('scroll', () => {
+  
+  const handleScroll = (source, target) => {
     if (!_scrollSyncOn || _syncing) return;
     _syncing = true;
-    const pct = editor.scrollTop / (editor.scrollHeight - editor.clientHeight || 1);
-    preview.scrollTop = pct * (preview.scrollHeight - preview.clientHeight);
+    const pct = source.scrollTop / (source.scrollHeight - source.clientHeight || 1);
+    target.scrollTop = pct * (target.scrollHeight - target.clientHeight);
     setTimeout(() => { _syncing = false; }, 50);
-  });
+  };
+
+  editor.addEventListener('scroll', () => handleScroll(editor, preview));
+  preview.addEventListener('scroll', () => handleScroll(preview, editor));
 }
 
 function toggleScrollSync() {
@@ -383,7 +412,8 @@ function runFind() {
   _findMatches = []; _findIndex = 0;
   if (!query) { document.getElementById('find-count').textContent = ''; return; }
   const text = ta.value;
-  const re = new RegExp(query.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'), 'gi');
+  const escapedQuery = query.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
+  const re = new RegExp(escapedQuery, 'gi');
   let m;
   while ((m = re.exec(text)) !== null) _findMatches.push(m.index);
   const cnt = _findMatches.length;
@@ -408,14 +438,19 @@ function doReplace(all) {
   const r = document.getElementById('replace-input').value;
   if (!q) return;
   const ta = document.getElementById('md-editor');
+  const escapedQuery = q.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
+  
   if (all) {
-    ta.value = ta.value.split(q).join(r);
+    const re = new RegExp(escapedQuery, 'gi');
+    ta.value = ta.value.replace(re, r);
     showSnackbar('Replaced all occurrences.', 'find_replace');
   } else {
+    if (!_findMatches.length) runFind();
     if (!_findMatches.length) return;
     const idx = _findMatches[_findIndex];
     ta.value = ta.value.substring(0, idx) + r + ta.value.substring(idx + q.length);
     showSnackbar('Replaced 1 occurrence.', 'find_replace');
   }
-  updatePreview(); runFind();
+  updatePreview(); 
+  runFind(); // Re-index after replacement
 }
