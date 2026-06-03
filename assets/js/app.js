@@ -220,98 +220,97 @@ async function exportPDF(source) {
   const originalTheme = document.documentElement.getAttribute('data-theme');
   document.documentElement.setAttribute('data-theme', 'light');
 
+  // master MUST be in the DOM so CSS styles are applied during html2canvas capture
   const master = document.createElement('div');
-  master.className = 'export-mode';
-  master.style.cssText = 'position: absolute; top: -99999px; left: 0; width: 850px; background: #fff; padding: 40px; box-sizing: border-box; opacity: 1;';
+  master.style.cssText = [
+    'position:absolute',
+    'top:-99999px',
+    'left:0',
+    'width:850px',
+    'background:#ffffff',
+    'padding:40px',
+    'box-sizing:border-box',
+    'color:#24292e',
+    'font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif',
+    'font-size:16px',
+    'line-height:1.6'
+  ].join(';');
   master.innerHTML = content.innerHTML;
   document.body.appendChild(master);
 
   try {
-    if (window.renderMermaid) await renderMermaid(master);
+    // Wait for fonts and images to load
     await document.fonts.ready;
-    const images = Array.from(master.querySelectorAll('img'));
-    await Promise.all(images.map(img =>
-      img.complete ? Promise.resolve() : new Promise(r => { img.onload = r; img.onerror = r; })
-    ));
+    await Promise.all(
+      Array.from(master.querySelectorAll('img')).map(img =>
+        img.complete ? Promise.resolve()
+                     : new Promise(r => { img.onload = r; img.onerror = r; })
+      )
+    );
+    // Give browser time to fully lay out and paint
     await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
     await new Promise(r => setTimeout(r, 500));
 
+    // Capture the ENTIRE master div as one canvas
+    // master is in the DOM → all CSS applies → no blank output
+    const canvas = await html2canvas(master, {
+      scale: 2,
+      useCORS: true,
+      allowTaint: false,
+      backgroundColor: '#ffffff',
+      logging: false,
+      scrollX: 0,
+      scrollY: 0,
+      x: 0,
+      y: 0,
+      width: master.offsetWidth,
+      height: master.offsetHeight
+    });
+
+    if (canvas.width === 0 || canvas.height === 0) {
+      throw new Error('Canvas is empty — nothing was rendered.');
+    }
+
     const { jsPDF } = window.jspdf;
-    const pdf = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait', compress: true });
-    const pdfWidth = pdf.internal.pageSize.getWidth();
-    const pdfHeight = pdf.internal.pageSize.getHeight();
-    const margin = 12;
-    const usableWidth = pdfWidth - margin * 2;
-    const usableHeight = pdfHeight - margin * 2;
+    const pdf      = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait', compress: true });
+    const pageW    = pdf.internal.pageSize.getWidth();   // 210mm
+    const pageH    = pdf.internal.pageSize.getHeight();  // 297mm
+    const margin   = 12;
+    const printW   = pageW - margin * 2;  // 186mm
+    const printH   = pageH - margin * 2;  // 273mm
 
-    // Small chunks to avoid canvas size limits and clipping
-    const MAX_CHUNK_PX = 900; 
-    const chunks = [];
-    let currentChunk = document.createElement('div');
-    currentChunk.className = 'export-mode';
-    currentChunk.style.cssText = 'width: 850px; background: #fff; padding: 40px; box-sizing: border-box;';
-    let currentH = 0;
+    // Total image height in mm (proportional to printW)
+    const totalImgH_mm = (canvas.height / canvas.width) * printW;
 
-    for (const child of Array.from(master.children)) {
-      const h = child.getBoundingClientRect().height || 100;
-      if (currentH + h > MAX_CHUNK_PX && currentChunk.children.length > 0) {
-        chunks.push(currentChunk);
-        currentChunk = document.createElement('div');
-        currentChunk.className = 'export-mode';
-        currentChunk.style.cssText = 'width: 850px; background: #fff; padding: 40px; box-sizing: border-box;';
-        currentH = 0;
-      }
-      currentChunk.appendChild(child.cloneNode(true));
-      currentH += h;
-    }
-    if (currentChunk.children.length > 0) chunks.push(currentChunk);
+    // Slice the canvas across pages
+    const imgData = canvas.toDataURL('image/jpeg', 0.95);
+    let yMm = 0; // how far down the image we've printed (mm)
+    let pageIndex = 0;
 
-    showSnackbar(`Rendering ${chunks.length} page(s)...`, 'sync');
+    while (yMm < totalImgH_mm) {
+      if (pageIndex > 0) pdf.addPage();
+      const sliceH_mm = Math.min(printH, totalImgH_mm - yMm);
 
-    const renderArea = document.createElement('div');
-    renderArea.className = 'export-mode';
-    renderArea.style.cssText = 'position: absolute; top: -99999px; left: 0; width: 850px; background: #fff; opacity: 1;';
-    document.body.appendChild(renderArea);
+      // Place the full image shifted up so the current slice aligns to top margin
+      pdf.addImage(
+        imgData,
+        'JPEG',
+        margin,           // x
+        margin - yMm,     // y — negative shift moves image up
+        printW,           // w
+        totalImgH_mm      // h — full image height, clipped by page boundary
+      );
 
-    for (let i = 0; i < chunks.length; i++) {
-      renderArea.innerHTML = '';
-      renderArea.appendChild(chunks[i]);
-      await new Promise(r => setTimeout(r, 300));
-      await new Promise(r => requestAnimationFrame(r));
-
-      const canvas = await html2canvas(renderArea, {
-        scale: 2,
-        useCORS: true,
-        backgroundColor: '#ffffff',
-        logging: false,
-        width: 850,
-        scrollY: -window.scrollY // Compensate for page scroll
-      });
-
-      const imgData = canvas.toDataURL('image/jpeg', 0.95);
-      const imgHeightMm = (canvas.height / canvas.width) * usableWidth;
-
-      if (i > 0) pdf.addPage();
-
-      let remaining = imgHeightMm;
-      let srcY = 0;
-      let firstSlice = true;
-      while (remaining > 0) {
-        if (!firstSlice) pdf.addPage();
-        pdf.addImage(imgData, 'JPEG', margin, margin - srcY, usableWidth, imgHeightMm, undefined, 'FAST');
-        srcY += usableHeight;
-        remaining -= usableHeight;
-        firstSlice = false;
-      }
+      yMm += sliceH_mm;
+      pageIndex++;
     }
 
-    document.body.removeChild(renderArea);
     pdf.save(getExportFilename('pdf'));
     showSnackbar('PDF exported successfully!', 'check_circle');
 
   } catch (err) {
     console.error('PDF Export Error:', err);
-    showSnackbar('PDF export failed: ' + err.message, 'error');
+    showSnackbar('PDF export failed: ' + (err.message || String(err)), 'error');
   } finally {
     if (document.body.contains(master)) document.body.removeChild(master);
     document.documentElement.setAttribute('data-theme', originalTheme);
