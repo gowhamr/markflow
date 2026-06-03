@@ -220,89 +220,119 @@ async function exportPDF(source) {
   const originalTheme = document.documentElement.getAttribute('data-theme');
   document.documentElement.setAttribute('data-theme', 'light');
 
-  // master MUST be in the DOM so CSS styles are applied during html2canvas capture
   const master = document.createElement('div');
-  master.style.cssText = [
-    'position:absolute',
-    'top:-99999px',
-    'left:0',
-    'width:850px',
-    'background:#ffffff',
-    'padding:40px',
-    'box-sizing:border-box',
-    'color:#24292e',
-    'font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif',
-    'font-size:16px',
-    'line-height:1.6'
-  ].join(';');
+  master.className = 'export-mode';
+  master.style.cssText = 'position:absolute; top:-99999px; left:0; width:850px; background:#ffffff; padding:40px; box-sizing:border-box; color:#24292e; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif; font-size:16px; line-height:1.6;';
   master.innerHTML = content.innerHTML;
   document.body.appendChild(master);
 
   try {
-    // Wait for fonts and images to load
+    if (window.renderMermaid) await renderMermaid(master);
     await document.fonts.ready;
-    await Promise.all(
-      Array.from(master.querySelectorAll('img')).map(img =>
-        img.complete ? Promise.resolve()
-                     : new Promise(r => { img.onload = r; img.onerror = r; })
-      )
-    );
-    // Give browser time to fully lay out and paint
+    await Promise.all(Array.from(master.querySelectorAll('img')).map(img => 
+      img.complete ? Promise.resolve() : new Promise(r => { img.onload = r; img.onerror = r; })
+    ));
     await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
     await new Promise(r => setTimeout(r, 500));
 
-    // Capture the ENTIRE master div as one canvas
-    // master is in the DOM → all CSS applies → no blank output
     const canvas = await html2canvas(master, {
       scale: 2,
       useCORS: true,
-      allowTaint: false,
       backgroundColor: '#ffffff',
       logging: false,
       scrollX: 0,
       scrollY: 0,
-      x: 0,
-      y: 0,
       width: master.offsetWidth,
       height: master.offsetHeight
     });
 
-    if (canvas.width === 0 || canvas.height === 0) {
-      throw new Error('Canvas is empty — nothing was rendered.');
-    }
-
     const { jsPDF } = window.jspdf;
-    const pdf      = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait', compress: true });
-    const pageW    = pdf.internal.pageSize.getWidth();   // 210mm
-    const pageH    = pdf.internal.pageSize.getHeight();  // 297mm
-    const margin   = 12;
-    const printW   = pageW - margin * 2;  // 186mm
-    const printH   = pageH - margin * 2;  // 273mm
+    const pdf = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait', compress: true });
+    const pageW = 210, pageH = 297, margin = 12;
+    const printW = pageW - (margin * 2);
+    const printH = pageH - (margin * 2);
+    
+    const scaleFactor = printW / master.offsetWidth; // mm per px
+    const pxScale = 2; // html2canvas scale
 
-    // Total image height in mm (proportional to printW)
-    const totalImgH_mm = (canvas.height / canvas.width) * printW;
+    // 1. Map ID targets to Y positions
+    const idMap = {};
+    master.querySelectorAll('[id]').forEach(el => {
+      idMap[el.id] = el.offsetTop * scaleFactor;
+    });
 
-    // Slice the canvas across pages
-    const imgData = canvas.toDataURL('image/jpeg', 0.95);
-    let yMm = 0; // how far down the image we've printed (mm)
-    let pageIndex = 0;
+    // 2. Identify safe break points
+    const children = Array.from(master.children);
+    const breakPoints = [0];
+    let currentY = 0;
+    
+    children.forEach(child => {
+      const childTop = child.offsetTop;
+      const childBottom = childTop + child.offsetHeight;
+      
+      // If adding this element exceeds the page height
+      if (childBottom * scaleFactor - breakPoints[breakPoints.length - 1] > printH) {
+        // Break before this element if it's not the first on the page
+        if (childTop * scaleFactor > breakPoints[breakPoints.length - 1]) {
+          breakPoints.push(childTop * scaleFactor);
+        }
+      }
+    });
+    breakPoints.push(master.offsetHeight * scaleFactor);
 
-    while (yMm < totalImgH_mm) {
-      if (pageIndex > 0) pdf.addPage();
-      const sliceH_mm = Math.min(printH, totalImgH_mm - yMm);
+    // 3. Render pages using tempCanvas slicing
+    for (let i = 0; i < breakPoints.length - 1; i++) {
+      if (i > 0) pdf.addPage();
+      
+      const startY_mm = breakPoints[i];
+      const endY_mm = breakPoints[i+1];
+      const sliceH_mm = endY_mm - startY_mm;
+      
+      const startY_px = (startY_mm / scaleFactor) * pxScale;
+      const sliceH_px = (sliceH_mm / scaleFactor) * pxScale;
 
-      // Place the full image shifted up so the current slice aligns to top margin
-      pdf.addImage(
-        imgData,
-        'JPEG',
-        margin,           // x
-        margin - yMm,     // y — negative shift moves image up
-        printW,           // w
-        totalImgH_mm      // h — full image height, clipped by page boundary
-      );
+      const tempCanvas = document.createElement('canvas');
+      tempCanvas.width = canvas.width;
+      tempCanvas.height = sliceH_px;
+      const ctx = tempCanvas.getContext('2d');
+      ctx.drawImage(canvas, 0, startY_px, canvas.width, sliceH_px, 0, 0, canvas.width, sliceH_px);
 
-      yMm += sliceH_mm;
-      pageIndex++;
+      pdf.addImage(tempCanvas.toDataURL('image/jpeg', 0.95), 'JPEG', margin, margin, printW, sliceH_mm, undefined, 'FAST');
+
+      // 4. Add internal links for this page slice
+      master.querySelectorAll('a[href^="#"]').forEach(link => {
+        const targetId = link.getAttribute('href').substring(1);
+        const targetY_mm = idMap[targetId];
+        
+        if (targetY_mm !== undefined) {
+          const linkRect = link.getBoundingClientRect();
+          const masterRect = master.getBoundingClientRect();
+          
+          // Link position relative to master top in mm
+          const linkTop_mm = (linkRect.top - masterRect.top) * scaleFactor;
+          const linkLeft_mm = (linkRect.left - masterRect.left) * scaleFactor;
+          
+          // Check if link is on this page slice
+          if (linkTop_mm >= startY_mm && linkTop_mm < endY_mm) {
+            // Find which page the target is on
+            let targetPage = 1;
+            for (let j = 0; j < breakPoints.length - 1; j++) {
+              if (targetY_mm >= breakPoints[j] && targetY_mm < breakPoints[j+1]) {
+                targetPage = j + 1;
+                break;
+              }
+            }
+            
+            pdf.link(
+              margin + linkLeft_mm,
+              margin + (linkTop_mm - startY_mm),
+              linkRect.width * scaleFactor,
+              linkRect.height * scaleFactor,
+              { pageNumber: targetPage, top: margin + (targetY_mm - breakPoints[targetPage - 1]) }
+            );
+          }
+        }
+      });
     }
 
     pdf.save(getExportFilename('pdf'));
