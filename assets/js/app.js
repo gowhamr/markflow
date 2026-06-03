@@ -229,12 +229,14 @@ async function exportPDF(source) {
   try {
     if (window.renderMermaid) await renderMermaid(master);
     await document.fonts.ready;
-    await Promise.all(Array.from(master.querySelectorAll('img')).map(img => 
+    const images = Array.from(master.querySelectorAll('img'));
+    await Promise.all(images.map(img => 
       img.complete ? Promise.resolve() : new Promise(r => { img.onload = r; img.onerror = r; })
     ));
     await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
     await new Promise(r => setTimeout(r, 500));
 
+    const masterRect = master.getBoundingClientRect();
     const canvas = await html2canvas(master, {
       scale: 2,
       useCORS: true,
@@ -251,36 +253,32 @@ async function exportPDF(source) {
     const pageW = 210, pageH = 297, margin = 12;
     const printW = pageW - (margin * 2);
     const printH = pageH - (margin * 2);
-    
-    const scaleFactor = printW / master.offsetWidth; // mm per px
-    const pxScale = 2; // html2canvas scale
+    const scaleFactor = printW / master.offsetWidth; // px to mm
+    const pxScale = 2;
 
-    // 1. Map ID targets to Y positions
+    // 1. Map IDs to Y-positions (mm)
     const idMap = {};
     master.querySelectorAll('[id]').forEach(el => {
-      idMap[el.id] = el.offsetTop * scaleFactor;
+      const rect = el.getBoundingClientRect();
+      idMap[el.id] = (rect.top - masterRect.top) * scaleFactor;
     });
 
-    // 2. Identify safe break points
-    const children = Array.from(master.children);
+    // 2. Precise breakpoint detection
     const breakPoints = [0];
-    let currentY = 0;
-    
-    children.forEach(child => {
-      const childTop = child.offsetTop;
-      const childBottom = childTop + child.offsetHeight;
+    Array.from(master.children).forEach(child => {
+      const rect = child.getBoundingClientRect();
+      const childTop = (rect.top - masterRect.top) * scaleFactor;
+      const childBottom = (rect.bottom - masterRect.top) * scaleFactor;
       
-      // If adding this element exceeds the page height
-      if (childBottom * scaleFactor - breakPoints[breakPoints.length - 1] > printH) {
-        // Break before this element if it's not the first on the page
-        if (childTop * scaleFactor > breakPoints[breakPoints.length - 1]) {
-          breakPoints.push(childTop * scaleFactor);
+      if (childBottom - breakPoints[breakPoints.length - 1] > printH) {
+        if (childTop > breakPoints[breakPoints.length - 1]) {
+          breakPoints.push(childTop);
         }
       }
     });
     breakPoints.push(master.offsetHeight * scaleFactor);
 
-    // 3. Render pages using tempCanvas slicing
+    // 3. Sliced Rendering with tempCanvas
     for (let i = 0; i < breakPoints.length - 1; i++) {
       if (i > 0) pdf.addPage();
       
@@ -299,37 +297,26 @@ async function exportPDF(source) {
 
       pdf.addImage(tempCanvas.toDataURL('image/jpeg', 0.95), 'JPEG', margin, margin, printW, sliceH_mm, undefined, 'FAST');
 
-      // 4. Add internal links for this page slice
+      // 4. Anchor links
       master.querySelectorAll('a[href^="#"]').forEach(link => {
         const targetId = link.getAttribute('href').substring(1);
         const targetY_mm = idMap[targetId];
-        
         if (targetY_mm !== undefined) {
-          const linkRect = link.getBoundingClientRect();
-          const masterRect = master.getBoundingClientRect();
-          
-          // Link position relative to master top in mm
-          const linkTop_mm = (linkRect.top - masterRect.top) * scaleFactor;
-          const linkLeft_mm = (linkRect.left - masterRect.left) * scaleFactor;
-          
-          // Check if link is on this page slice
-          if (linkTop_mm >= startY_mm && linkTop_mm < endY_mm) {
-            // Find which page the target is on
+          const rect = link.getBoundingClientRect();
+          const lTop = (rect.top - masterRect.top) * scaleFactor;
+          const lLeft = (rect.left - masterRect.left) * scaleFactor;
+
+          if (lTop >= startY_mm && lTop < endY_mm) {
             let targetPage = 1;
             for (let j = 0; j < breakPoints.length - 1; j++) {
               if (targetY_mm >= breakPoints[j] && targetY_mm < breakPoints[j+1]) {
-                targetPage = j + 1;
-                break;
+                targetPage = j + 1; break;
               }
             }
-            
-            pdf.link(
-              margin + linkLeft_mm,
-              margin + (linkTop_mm - startY_mm),
-              linkRect.width * scaleFactor,
-              linkRect.height * scaleFactor,
-              { pageNumber: targetPage, top: margin + (targetY_mm - breakPoints[targetPage - 1]) }
-            );
+            pdf.link(margin + lLeft, margin + (lTop - startY_mm), rect.width * scaleFactor, rect.height * scaleFactor, {
+              pageNumber: targetPage,
+              top: margin + (targetY_mm - breakPoints[targetPage - 1])
+            });
           }
         }
       });
@@ -340,7 +327,7 @@ async function exportPDF(source) {
 
   } catch (err) {
     console.error('PDF Export Error:', err);
-    showSnackbar('PDF export failed: ' + (err.message || String(err)), 'error');
+    showSnackbar('PDF export failed: ' + err.message, 'error');
   } finally {
     if (document.body.contains(master)) document.body.removeChild(master);
     document.documentElement.setAttribute('data-theme', originalTheme);
