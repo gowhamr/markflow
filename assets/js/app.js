@@ -220,9 +220,10 @@ async function exportPDF(source) {
   const originalTheme = document.documentElement.getAttribute('data-theme');
   document.documentElement.setAttribute('data-theme', 'light');
 
+  // Create a hidden but "visible to renderer" container
   const master = document.createElement('div');
   master.className = 'export-mode';
-  master.style.cssText = 'position:fixed;top:0;left:-9999px;width:850px;background:#fff;padding:40px;box-sizing:border-box;opacity:0.01;pointer-events:none;';
+  master.style.cssText = 'position: absolute; left: 0; top: 0; width: 850px; padding: 40px; background: #fff; z-index: -9999; opacity: 1; pointer-events: none;';
   master.innerHTML = content.innerHTML;
   document.body.appendChild(master);
 
@@ -235,6 +236,8 @@ async function exportPDF(source) {
     await Promise.all(images.map(img =>
       img.complete ? Promise.resolve() : new Promise(r => { img.onload = r; img.onerror = r; })
     ));
+    
+    // Multiple frames to ensure layout stability
     await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
 
     // Ensure Mermaid diagrams are stabilized
@@ -247,7 +250,7 @@ async function exportPDF(source) {
       }
     };
     await waitForMermaid();
-    await new Promise(r => setTimeout(r, 400));
+    await new Promise(r => setTimeout(r, 500));
 
     const { jsPDF } = window.jspdf;
     const pdf = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait', compress: true });
@@ -258,20 +261,20 @@ async function exportPDF(source) {
     const usableHeight = pdfHeight - margin * 2;
 
     // Chunk children to avoid canvas size limits
-    const MAX_CHUNK_PX = 7000;
+    const MAX_CHUNK_PX = 6000;
     const chunks = [];
     let currentChunk = document.createElement('div');
     currentChunk.className = 'export-mode';
-    currentChunk.style.cssText = 'width:850px;background:#fff;padding:40px;box-sizing:border-box;';
+    currentChunk.style.cssText = 'width: 850px; background: #fff; padding: 40px; box-sizing: border-box;';
     let currentH = 0;
 
     for (const child of Array.from(master.children)) {
-      const h = child.getBoundingClientRect().height || 80;
+      const h = child.getBoundingClientRect().height || 100;
       if (currentH + h > MAX_CHUNK_PX && currentChunk.children.length > 0) {
         chunks.push(currentChunk);
         currentChunk = document.createElement('div');
         currentChunk.className = 'export-mode';
-        currentChunk.style.cssText = 'width:850px;background:#fff;padding:40px;box-sizing:border-box;';
+        currentChunk.style.cssText = 'width: 850px; background: #fff; padding: 40px; box-sizing: border-box;';
         currentH = 0;
       }
       currentChunk.appendChild(child.cloneNode(true));
@@ -284,28 +287,26 @@ async function exportPDF(source) {
     // Render each chunk off-screen
     const renderArea = document.createElement('div');
     renderArea.className = 'export-mode';
-    renderArea.style.cssText = 'position:fixed;top:0;left:-9999px;width:850px;background:#fff;opacity:0.01;pointer-events:none;';
+    renderArea.style.cssText = 'position: absolute; left: 0; top: 0; width: 850px; z-index: -9999; opacity: 1; pointer-events: none;';
     document.body.appendChild(renderArea);
 
     for (let i = 0; i < chunks.length; i++) {
       renderArea.innerHTML = '';
       renderArea.appendChild(chunks[i]);
-      // Extra time for layout and rendering stabilization
-      await new Promise(r => setTimeout(r, 150));
+      
+      // Give the browser time to paint the chunk
+      await new Promise(r => setTimeout(r, 250));
       await new Promise(r => requestAnimationFrame(r));
 
-      const canvas = await html2canvas(renderArea, {
+      const canvas = await html2canvas(chunks[i], {
         scale: 2,
         useCORS: true,
         backgroundColor: '#ffffff',
         logging: false,
-        scrollX: 0,
-        scrollY: 0,
-        width: 850,
-        windowWidth: 850 // Force window width for media queries and layout
+        width: 850
       });
 
-      const imgData = canvas.toDataURL('image/jpeg', 0.97);
+      const imgData = canvas.toDataURL('image/jpeg', 0.95);
       const imgHeightMm = (canvas.height / canvas.width) * usableWidth;
 
       if (i > 0) pdf.addPage();
@@ -313,17 +314,17 @@ async function exportPDF(source) {
       // Handle tall chunks spanning multiple PDF pages
       let remaining = imgHeightMm;
       let srcY = 0;
-      let isFirstPageOfChunk = true;
+      let firstSlice = true;
       
       while (remaining > 0) {
-        if (!isFirstPageOfChunk) pdf.addPage();
+        if (!firstSlice) pdf.addPage();
         
         // We shift the image UP by srcY, so the correct slice starts at 'margin'
         pdf.addImage(imgData, 'JPEG', margin, margin - srcY, usableWidth, imgHeightMm, undefined, 'FAST');
         
         srcY += usableHeight;
         remaining -= usableHeight;
-        isFirstPageOfChunk = false;
+        firstSlice = false;
       }
     }
 
