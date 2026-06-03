@@ -253,17 +253,17 @@ async function exportPDF(source) {
     const pageW = 210, pageH = 297, margin = 12;
     const printW = pageW - (margin * 2);
     const printH = pageH - (margin * 2);
-    const scaleFactor = printW / master.offsetWidth; // px to mm
-    const pxScale = 2;
+    const scaleFactor = printW / master.offsetWidth; // mm per px
+    const pxScale = 2; // html2canvas scale
 
-    // 1. Map IDs to Y-positions (mm)
+    // 1. Map ID targets to Y positions (mm)
     const idMap = {};
     master.querySelectorAll('[id]').forEach(el => {
       const rect = el.getBoundingClientRect();
       idMap[el.id] = (rect.top - masterRect.top) * scaleFactor;
     });
 
-    // 2. Precise breakpoint detection
+    // 2. Identify safe break points (mm)
     const breakPoints = [0];
     Array.from(master.children).forEach(child => {
       const rect = child.getBoundingClientRect();
@@ -278,7 +278,7 @@ async function exportPDF(source) {
     });
     breakPoints.push(master.offsetHeight * scaleFactor);
 
-    // 3. Sliced Rendering with tempCanvas
+    // 3. Render pages using tempCanvas slicing
     for (let i = 0; i < breakPoints.length - 1; i++) {
       if (i > 0) pdf.addPage();
       
@@ -291,16 +291,22 @@ async function exportPDF(source) {
 
       const tempCanvas = document.createElement('canvas');
       tempCanvas.width = canvas.width;
-      tempCanvas.height = sliceH_px;
+      tempCanvas.height = Math.floor(sliceH_px);
       const ctx = tempCanvas.getContext('2d');
-      ctx.drawImage(canvas, 0, startY_px, canvas.width, sliceH_px, 0, 0, canvas.width, sliceH_px);
+      
+      ctx.drawImage(
+        canvas, 
+        0, Math.floor(startY_px), canvas.width, Math.floor(sliceH_px), 
+        0, 0, canvas.width, Math.floor(sliceH_px)
+      );
 
       pdf.addImage(tempCanvas.toDataURL('image/jpeg', 0.95), 'JPEG', margin, margin, printW, sliceH_mm, undefined, 'FAST');
 
-      // 4. Anchor links
+      // 4. Add internal links for this page slice
       master.querySelectorAll('a[href^="#"]').forEach(link => {
         const targetId = link.getAttribute('href').substring(1);
         const targetY_mm = idMap[targetId];
+        
         if (targetY_mm !== undefined) {
           const rect = link.getBoundingClientRect();
           const lTop = (rect.top - masterRect.top) * scaleFactor;
